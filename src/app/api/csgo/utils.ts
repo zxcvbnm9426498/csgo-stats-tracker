@@ -1,9 +1,7 @@
 import axios from 'axios';
-import { randomUUID } from 'crypto';
 import * as cheerio from 'cheerio';
 
 // 常量定义
-const TIME_STAMP = Math.floor(Date.now() / 1000);
 const APP_VERSION = "3.5.9";
 const USER_AGENTS = [
   "esport-app/3.5.9 (com.wmzq.esportapp; build:2; iOS 18.4.0) Alamofire/5.10.2",
@@ -111,8 +109,39 @@ interface DetailedStats {
   maps: Map[];
 }
 
+// Define types for API responses
+interface ColaUserInfo {
+  code: number;
+  message: string;
+  data: {
+    player?: {
+      personaname: string;
+      [key: string]: unknown;
+    };
+    vac_banned: boolean;
+    game_ban_count: number;
+    [key: string]: unknown;
+  };
+}
+
+interface ColaPlayerStats {
+  code: number;
+  message: string;
+  data: {
+    id: string;
+    [key: string]: unknown;
+  };
+}
+
+interface ParsedPlayerData {
+  playerInfo: PlayerData;
+  userInfo: ColaUserInfo | null;
+  playerStats: ColaPlayerStats | null;
+  detailedStats: DetailedStats | null;
+}
+
 // 通过用户ID搜索玩家
-export async function searchById(searchText: string) {
+export async function searchById(searchText: string): Promise<ParsedPlayerData | null> {
   try {
     // 先尝试使用搜索API
     const playerData = await searchPlayerById(searchText);
@@ -139,7 +168,7 @@ export async function searchById(searchText: string) {
 }
 
 // 通过Steam ID直接搜索玩家
-export async function searchBySteamId(steamId: string) {
+export async function searchBySteamId(steamId: string): Promise<ParsedPlayerData | null> {
   try {
     return await getPlayerFullData({
       steamId64Str: steamId,
@@ -152,7 +181,7 @@ export async function searchBySteamId(steamId: string) {
 }
 
 // 获取玩家完整数据
-async function getPlayerFullData(playerData: PlayerData) {
+async function getPlayerFullData(playerData: PlayerData): Promise<ParsedPlayerData | null> {
   try {
     if (!playerData.steamId64Str) {
       return null;
@@ -175,8 +204,8 @@ async function getPlayerFullData(playerData: PlayerData) {
     
     return {
       playerInfo: playerData,
-      userInfo: userInfo || null,
-      playerStats: playerStats || null,
+      userInfo: userInfo as ColaUserInfo | null,
+      playerStats: playerStats as ColaPlayerStats | null,
       detailedStats
     };
   } catch (error) {
@@ -263,7 +292,7 @@ async function getSteamIdFromAlternativeApi(userId: string) {
 }
 
 // 获取用户信息
-async function getUserInfo(steamId: string) {
+async function getUserInfo(steamId: string): Promise<ColaUserInfo | null> {
   try {
     const headers = getColaApiHeaders();
     const payload = {
@@ -279,7 +308,7 @@ async function getUserInfo(steamId: string) {
 }
 
 // 获取玩家统计数据
-async function getPlayerStats(steamId: string) {
+async function getPlayerStats(steamId: string): Promise<ColaPlayerStats | null> {
   try {
     const headers = getColaApiHeaders();
     const payload = {
@@ -314,7 +343,8 @@ async function parsePlayerRecord(recordId: string): Promise<DetailedStats | null
     const statCards = $('.col-md-2.col-6 .v-card__subtitle.text-h5');
     const statTitles = $('.col-md-2.col-6 .v-card__title.text-subtitle-1 span');
     
-    statTitles.each((i: number, elem: any) => {
+    // @ts-ignore
+    statTitles.each((i: number, elem) => {
       const title = $(elem).text().trim();
       const value = i < statCards.length ? $(statCards[i]).text().trim() : "N/A";
       stats[title] = value;
@@ -333,7 +363,8 @@ async function parsePlayerRecord(recordId: string): Promise<DetailedStats | null
       
       const listItems = $(card).find('.v-list-item');
       
-      listItems.each((_: number, item: any) => {
+      // @ts-ignore
+      listItems.each((_: number, item) => {
         const columns = $(item).find('.v-list-item__content');
         if (columns.length >= 2) {
           const itemTitle = $(columns[0]).text().trim();
@@ -353,7 +384,8 @@ async function parsePlayerRecord(recordId: string): Promise<DetailedStats | null
       const weaponTable = weaponTables.first();
       const weaponRows = weaponTable.find('tbody tr');
       
-      weaponRows.each((i: number, row: any) => {
+      // @ts-ignore
+      weaponRows.each((i: number, row) => {
         if (i === 0) return; // 跳过标题行
         if (i > 5) return; // 只取前5个
         
@@ -379,7 +411,8 @@ async function parsePlayerRecord(recordId: string): Promise<DetailedStats | null
       const mapTable = weaponTables.eq(1);
       const mapRows = mapTable.find('tbody tr');
       
-      mapRows.each((i: number, row: any) => {
+      // @ts-ignore
+      mapRows.each((i: number, row) => {
         if (i === 0) return; // 跳过标题行
         if (i > 5) return; // 只取前5个
         

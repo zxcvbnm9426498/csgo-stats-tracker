@@ -5,9 +5,57 @@ import { Toaster, toast } from 'react-hot-toast';
 import SearchForm from './components/SearchForm';
 import ResultDisplay from './components/ResultDisplay';
 
+// Define the player data interface
+interface PlayerInfo {
+  steamId64Str: string;
+  name: string | null;
+}
+
+interface UserInfo {
+  code: number;
+  data?: {
+    player?: {
+      personaname: string;
+    };
+    vac_banned: boolean;
+    game_ban_count: number;
+  };
+}
+
+interface DetailedData {
+  player_name: string;
+  main_stats: Record<string, string>;
+  detailed_stats: Record<string, Record<string, string>>;
+  weapons: Array<{
+    rank: string;
+    name: string;
+    kills: string;
+    shots: string;
+    hits: string;
+    accuracy: string;
+  }>;
+  maps: Array<{
+    rank: string;
+    name: string;
+    rounds: string;
+    wins: string;
+    winrate: string;
+  }>;
+}
+
+interface PlayerData {
+  playerInfo: PlayerInfo;
+  userInfo: UserInfo | null;
+  playerStats: {
+    code: number;
+    data: Record<string, unknown>;
+  } | null;
+  detailedStats: DetailedData | null;
+}
+
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
-  const [playerData, setPlayerData] = useState<any>(null);
+  const [playerData, setPlayerData] = useState<PlayerData | null>(null);
 
   const handleSearch = async (data: { searchType: string; searchId: string }) => {
     setIsLoading(true);

@@ -18,7 +18,8 @@ interface Map {
   winrate: string;
 }
 
-interface DetailedStats {
+// Remove unused DetailedStats interface or keep it and use it
+interface DetailedData {
   player_name: string;
   main_stats: Record<string, string>;
   detailed_stats: Record<string, Record<string, string>>;
@@ -26,8 +27,30 @@ interface DetailedStats {
   maps: Map[];
 }
 
+interface PlayerInfo {
+  steamId64Str: string;
+  name: string | null;
+}
+
+interface UserInfo {
+  code: number;
+  data?: {
+    player?: {
+      personaname: string;
+    };
+    vac_banned: boolean;
+    game_ban_count: number;
+  };
+}
+
+interface PlayerData {
+  playerInfo: PlayerInfo;
+  userInfo: UserInfo | null;
+  detailedStats: DetailedData | null;
+}
+
 type ResultDisplayProps = {
-  data: any;
+  data: PlayerData;
 };
 
 const ResultDisplay: React.FC<ResultDisplayProps> = ({ data }) => {
