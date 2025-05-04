@@ -62,6 +62,9 @@ interface UserInfo {
     vac_banned: boolean;
     game_ban_count: number;
   };
+  banInfo?: {
+    desc: string;
+  };
 }
 
 interface PlayerData {
@@ -129,12 +132,18 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false 
             </div>
             <div className="p-4 bg-gray-50 rounded-md">
               <p className="text-sm font-medium text-gray-700">ELO 分数</p>
-              <p className="font-medium text-blue-600">{data.playerStats?.data?.pvpScore || '未知'}</p>
+              <p className="font-medium text-blue-600">
+                {data.playerStats?.data?.pvpScore || '未知'}
+              </p>
             </div>
             <div className="p-4 bg-gray-50 rounded-md">
               <p className="text-sm font-medium text-gray-700">游戏封禁</p>
-              <p className={`font-medium ${userInfo.data.game_ban_count > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                {userInfo.data.game_ban_count > 0 ? `${userInfo.data.game_ban_count} 次` : '无封禁记录'}
+              <p className={`font-medium ${userInfo.data.game_ban_count > 0 || userInfo.banInfo?.desc ? 'text-red-600' : 'text-green-600'}`}>
+                {userInfo.data.game_ban_count > 0 
+                  ? `${userInfo.data.game_ban_count} 次` 
+                  : userInfo.banInfo?.desc
+                    ? userInfo.banInfo.desc
+                    : '无封禁记录'}
               </p>
             </div>
           </div>

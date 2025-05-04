@@ -78,6 +78,60 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(response.data);
     }
 
+    // Get ELO score and match history
+    if (action === 'getEloScore') {
+      if (!steamId) {
+        return NextResponse.json(
+          { error: 'SteamID 不能为空' },
+          { status: 400 }
+        );
+      }
+
+      const token = request.headers.get('x-auth-token');
+      if (!token) {
+        return NextResponse.json(
+          { error: '需要登录' },
+          { status: 401 }
+        );
+      }
+
+      const url = "https://api.wmpvp.com/api/csgo/home/match/list";
+      const timestamp = Math.floor(Date.now() / 1000);
+      const headers = {
+        "Host": "api.wmpvp.com",
+        "Accept": "*/*",
+        "appversion": "3.5.9",
+        "gameTypeStr": "2",
+        "Accept-Encoding": "gzip",
+        "Accept-Language": "zh-Hans-CN;q=1.0",
+        "platform": "ios",
+        "token": token,
+        "appTheme": "0",
+        "t": String(timestamp),
+        "User-Agent": "esport-app/3.5.9 (com.wmzq.esportapp; build:2; iOS 18.4.0) Alamofire/5.10.2",
+        "gameType": "2",
+        "Connection": "keep-alive",
+        "Content-Type": "application/json"
+      };
+
+      const payload = {
+        "pvpType": -1,
+        "mySteamId": 0,
+        "csgoSeasonId": "recent",
+        "page": 1,
+        "pageSize": 11,
+        "dataSource": 3,
+        "toSteamId": Number(steamId)
+      };
+
+      const response = await axios.post(url, payload, { 
+        headers: headers,
+        validateStatus: () => true // Accept any status code
+      });
+
+      return NextResponse.json(response.data);
+    }
+
     return NextResponse.json(
       { error: '未知的操作' },
       { status: 400 }

@@ -63,7 +63,76 @@ export default function Home() {
     // 检查用户是否已登录
     const authToken = sessionStorage.getItem('authToken');
     setIsLoggedIn(!!authToken);
-  }, []);
+    
+    // 如果用户已登录且有玩家数据，则获取额外的信息
+    if (authToken && playerData?.playerInfo?.steamId64Str) {
+      updatePlayerData(playerData.playerInfo.steamId64Str, authToken);
+    }
+  }, [isLoggedIn, playerData?.playerInfo?.steamId64Str]);
+
+  // 更新玩家数据（获取ELO分数和封禁信息）
+  const updatePlayerData = async (steamId: string, token: string) => {
+    try {
+      // 获取ELO分数
+      const eloResponse = await fetch('/api/auth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-auth-token': token
+        },
+        body: JSON.stringify({
+          action: 'getEloScore',
+          steamId
+        })
+      });
+      
+      const eloData = await eloResponse.json();
+      
+      if (eloData.statusCode === 0 && eloData.data) {
+        setPlayerData(prevData => {
+          if (!prevData) return null;
+          return {
+            ...prevData,
+            playerStats: {
+              code: 0,
+              data: eloData.data
+            }
+          };
+        });
+      }
+      
+      // 获取封禁信息
+      const banResponse = await fetch('/api/auth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-auth-token': token
+        },
+        body: JSON.stringify({
+          action: 'checkBan',
+          steamId
+        })
+      });
+      
+      const banData = await banResponse.json();
+      
+      // 如果有封禁信息，更新到userInfo中
+      if (banData.statusCode === 0 && banData.data) {
+        setPlayerData(prevData => {
+          if (!prevData || !prevData.userInfo) return prevData;
+          return {
+            ...prevData,
+            userInfo: {
+              ...prevData.userInfo,
+              banInfo: banData.data
+            }
+          };
+        });
+      }
+    } catch (error) {
+      console.error('更新玩家数据时出错:', error);
+    }
+  };
 
   const handleSearch = async (data: { searchType: string; searchId: string }) => {
     setIsLoading(true);
@@ -104,6 +173,17 @@ export default function Home() {
     sessionStorage.removeItem('authToken');
     setIsLoggedIn(false);
     toast.success('已退出登录');
+    
+    // 如果有玩家数据，清除额外信息
+    if (playerData) {
+      setPlayerData(prevData => {
+        if (!prevData) return null;
+        return {
+          ...prevData,
+          playerStats: null
+        };
+      });
+    }
   };
 
   return (
