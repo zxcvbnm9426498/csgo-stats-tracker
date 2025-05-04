@@ -63,25 +63,31 @@ export default function Home() {
     // 检查用户是否已登录
     const authToken = sessionStorage.getItem('authToken');
     const wasLoggedIn = isLoggedIn;
-    setIsLoggedIn(!!authToken);
+    const currentlyLoggedIn = !!authToken;
+    setIsLoggedIn(currentlyLoggedIn);
     
-    // 如果用户登录状态发生变化（从未登录到已登录）并且有玩家数据，则获取额外信息
-    if (!!authToken && !wasLoggedIn && playerData?.playerInfo?.steamId64Str) {
-      console.log('Login state changed, updating player data...');
+    console.log(`[页面] useEffect 登录状态检查: wasLoggedIn=${wasLoggedIn}, currentlyLoggedIn=${currentlyLoggedIn}`);
+    
+    // 如果用户从未登录变为已登录，并且有玩家数据，则获取额外信息
+    if (currentlyLoggedIn && !wasLoggedIn && playerData?.playerInfo?.steamId64Str) {
+      console.log('[页面] 登录状态变化，触发 updatePlayerData');
       updatePlayerData(playerData.playerInfo.steamId64Str, authToken);
     }
-  }, [isLoggedIn, playerData?.playerInfo?.steamId64Str]);
+  }, [isLoggedIn]);
 
-  // 在搜索结果返回后，如果已登录，立即请求额外数据
+  // 在搜索结果(playerData)返回后，如果已登录，立即请求额外数据
   useEffect(() => {
+    console.log(`[页面] useEffect 玩家数据检查: playerData=${!!playerData}, isLoggedIn=${isLoggedIn}`);
     if (playerData?.playerInfo?.steamId64Str && isLoggedIn) {
       const authToken = sessionStorage.getItem('authToken');
       if (authToken) {
-        console.log('Player data loaded, updating with additional info...');
+        console.log('[页面] 玩家数据已加载且用户已登录，触发 updatePlayerData');
         updatePlayerData(playerData.playerInfo.steamId64Str, authToken);
+      } else {
+        console.warn('[页面] 玩家数据已加载但 authToken 未找到，无法更新数据');
       }
     }
-  }, [playerData?.playerInfo?.steamId64Str]);
+  }, [playerData?.playerInfo?.steamId64Str, isLoggedIn]);
 
   // 更新玩家数据（获取ELO分数和封禁信息）
   const updatePlayerData = async (steamId: string, token: string) => {
@@ -119,7 +125,8 @@ export default function Home() {
           console.log('[页面] 从第一场比赛记录中获取pvpScore:', pvpScore);
         }
         
-        if (pvpScore) {
+        // 修改判断条件，允许 pvpScore 为 0
+        if (pvpScore !== null && pvpScore !== undefined) { 
           console.log('[页面] 更新UI显示ELO分数:', pvpScore);
           setPlayerData(prevData => {
             if (!prevData) return null;
@@ -135,7 +142,7 @@ export default function Home() {
             };
           });
         } else {
-          console.log('[页面] 未找到pvpScore');
+          console.log('[页面] 未找到有效的pvpScore值 (可能是 null 或 undefined)');
         }
       } else {
         console.error('[页面] 获取ELO分数失败:', eloData);
