@@ -54,6 +54,14 @@ interface PlayerData {
   detailedStats: DetailedData | null;
 }
 
+// Helper function to mask phone number
+const maskPhoneNumber = (phone: string | null): string | null => {
+  if (!phone || phone.length < 7) return phone; // Return original if too short or null
+  const start = phone.substring(0, 3);
+  const end = phone.substring(phone.length - 4);
+  return `${start}****${end}`;
+};
+
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [playerData, setPlayerData] = useState<PlayerData | null>(null);
@@ -244,7 +252,7 @@ export default function Home() {
             {isLoggedIn && userPhone && (
               <div className="text-xs text-gray-600 mb-1 text-right">
                 <p>用户ID: {userId || '-'}</p>
-                <p>手机号: {userPhone}</p>
+                <p>手机号: {maskPhoneNumber(userPhone)}</p>
                 {userToken && <p title={userToken}>Token: {userToken.substring(0, 6)}...{userToken.substring(userToken.length - 4)}</p>}
               </div>
             )}

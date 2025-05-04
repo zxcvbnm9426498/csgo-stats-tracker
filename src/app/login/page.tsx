@@ -133,6 +133,13 @@ export default function LoginPage() {
           <div className="mt-4 text-center text-sm text-gray-500">
             <p>登录后可查看更多玩家数据</p>
           </div>
+          
+          <div className="mt-4 text-center text-xs text-gray-500 border-t pt-3">
+            <p>
+              提示：验证码需前往 <strong>完美世界竞技平台APP</strong>，
+              在登录界面通过您注册的手机号手动获取。
+            </p>
+          </div>
         </div>
       </div>
     </main>
