@@ -370,11 +370,11 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data }) => {
       )}
 
       {/* ELO Score Modal */}
-      <dialog id="eloScoreModal" className="modal modal-middle">
+      <dialog id="eloScoreModal" className="modal">
         <div className="modal-box max-w-xl">
-          <h3 className="font-bold text-lg">ELO 分数详情</h3>
+          <h3 className="font-bold text-lg text-center border-b pb-2 mb-3">ELO 分数详情</h3>
           <div className="py-4">
-            <p className="mb-2">当前分数: <span className="font-bold">{data.playerStats?.data?.pvpScore || '未知'}</span></p>
+            <p className="mb-2 text-center">当前分数: <span className="font-bold text-blue-600">{data.playerStats?.data?.pvpScore || '未知'}</span></p>
             <div className="overflow-x-auto mt-4">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -402,26 +402,26 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data }) => {
               </table>
             </div>
           </div>
-          <div className="modal-action">
+          <div className="modal-action center border-t pt-2">
             <form method="dialog">
-              <button className="btn">关闭</button>
+              <button className="btn btn-blue px-8">关闭</button>
             </form>
           </div>
         </div>
       </dialog>
 
       {/* Login Modal */}
-      <dialog id="loginModal" className="modal modal-middle">
-        <div className="modal-box max-w-md">
-          <h3 className="font-bold text-lg mb-4">登录查看详情</h3>
-          <div className="py-2">
+      <dialog id="loginModal" className="modal">
+        <div className="modal-box">
+          <h3 className="font-bold text-lg text-center border-b pb-2 mb-4">登录查看详情</h3>
+          <div className="py-2 px-4">
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">手机号</label>
                 <input
                   type="tel"
                   id="phone"
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   placeholder="请输入手机号"
                 />
               </div>
@@ -430,36 +430,36 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data }) => {
                 <input
                   type="text"
                   id="code"
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   placeholder="请输入验证码"
                 />
               </div>
             </div>
           </div>
-          <div className="modal-action mt-6">
+          <div className="modal-action center border-t pt-4">
             <button
-              className="btn bg-blue-600 text-white hover:bg-blue-700"
+              className="btn btn-blue px-8 mr-2"
               onClick={() => window.login?.()}
             >
               登录
             </button>
             <form method="dialog">
-              <button className="btn">取消</button>
+              <button className="btn btn-gray px-8">取消</button>
             </form>
           </div>
         </div>
       </dialog>
 
       {/* Ban Info Modal */}
-      <dialog id="banInfoModal" className="modal modal-middle">
-        <div className="modal-box max-w-md">
-          <h3 className="font-bold text-lg mb-2">封禁信息</h3>
-          <div id="banInfoContent" className="py-4">
-            <p>正在获取封禁信息...</p>
+      <dialog id="banInfoModal" className="modal">
+        <div className="modal-box">
+          <h3 className="font-bold text-lg text-center border-b pb-2 mb-2">封禁信息</h3>
+          <div id="banInfoContent" className="py-6 px-4">
+            <p className="text-center">正在获取封禁信息...</p>
           </div>
-          <div className="modal-action">
+          <div className="modal-action center border-t pt-2">
             <form method="dialog">
-              <button className="btn">关闭</button>
+              <button className="btn btn-blue px-8">关闭</button>
             </form>
           </div>
         </div>
