@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
         "Accept": "*/*",
         "appversion": "3.5.9",
         "gameTypeStr": "2",
-        "Accept-Encoding": "gzip",
+        "Accept-Encoding": "br;q=1.0, gzip;q=0.9, deflate;q=0.8",
         "Accept-Language": "zh-Hans-CN;q=1.0",
         "platform": "ios",
         "token": token,
@@ -121,21 +121,35 @@ export async function POST(request: NextRequest) {
         "page": 1,
         "pageSize": 11,
         "dataSource": 3,
-        "toSteamId": Number(steamId)
+        "toSteamId": parseInt(steamId)
       };
 
       try {
+        console.log(`Sending request to ${url} with steamId: ${steamId}`);
+        console.log('Request headers:', JSON.stringify(headers, null, 2));
+        console.log('Request payload:', JSON.stringify(payload, null, 2));
+
         const response = await axios.post(url, payload, { 
           headers: headers,
           validateStatus: () => true // Accept any status code
         });
 
         // 检查响应中是否有数据
+        console.log('Response status:', response.status);
+        console.log('Response data:', JSON.stringify(response.data, null, 2));
+
         if (response.data && response.data.statusCode === 0) {
           if (!response.data.data || !response.data.data.matchList || response.data.data.matchList.length === 0) {
             console.log('No match data found for steamId:', steamId);
           } else {
             console.log('Successfully retrieved match data');
+            // 如果有matchList数据，从中提取pvpScore
+            if (response.data.data.matchList.length > 0) {
+              const firstMatch = response.data.data.matchList[0];
+              console.log('First match pvpScore:', firstMatch.pvpScore);
+              // 将pvpScore添加到data层级
+              response.data.data.pvpScore = firstMatch.pvpScore;
+            }
           }
         } else {
           console.error('API Error:', response.data);

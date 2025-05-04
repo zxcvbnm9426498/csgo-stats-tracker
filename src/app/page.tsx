@@ -104,26 +104,36 @@ export default function Home() {
       console.log('ELO data response:', eloData);
       
       if (eloData.statusCode === 0 && eloData.data) {
-        // 即使matchList为空，仍然可能有pvpScore
         let pvpScore = null;
-        if (eloData.data.matchList && eloData.data.matchList.length > 0) {
-          // 获取最新比赛的分数
+        
+        // 尝试从不同的地方获取pvpScore
+        if (eloData.data.pvpScore) {
+          // 如果API直接返回了pvpScore
+          pvpScore = eloData.data.pvpScore;
+        } else if (eloData.data.matchList && eloData.data.matchList.length > 0) {
+          // 如果有比赛列表，从第一场比赛中获取
           pvpScore = eloData.data.matchList[0].pvpScore;
         }
         
-        setPlayerData(prevData => {
-          if (!prevData) return null;
-          return {
-            ...prevData,
-            playerStats: {
-              code: 0,
-              data: {
-                ...eloData.data,
-                pvpScore: pvpScore // 使用最新的比赛分数
+        console.log('Found pvpScore:', pvpScore);
+        
+        if (pvpScore) {
+          setPlayerData(prevData => {
+            if (!prevData) return null;
+            return {
+              ...prevData,
+              playerStats: {
+                code: 0,
+                data: {
+                  ...eloData.data,
+                  pvpScore: pvpScore
+                }
               }
-            }
-          };
-        });
+            };
+          });
+        } else {
+          console.log('No pvpScore found in response');
+        }
       }
       
       // 获取封禁信息
