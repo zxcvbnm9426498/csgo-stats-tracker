@@ -1,45 +1,97 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchById, searchBySteamId } from './utils';
 
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const body = await req.json();
+    const body = await request.json();
     const { searchType, searchId } = body;
 
-    if (!searchId) {
+    if (!searchType || !searchId) {
       return NextResponse.json(
-        { error: '请输入有效的ID' },
+        { error: 'Search type and search ID are required' },
         { status: 400 }
       );
     }
 
-    let result;
-    if (searchType === 'userId') {
-      // 通过用户ID搜索
-      result = await searchById(searchId);
-    } else if (searchType === 'steamId') {
-      // 通过Steam ID搜索
-      result = await searchBySteamId(searchId);
-    } else {
-      return NextResponse.json(
-        { error: '无效的搜索类型' },
-        { status: 400 }
-      );
-    }
+    const result = searchType === 'steamId' 
+      ? await searchBySteamId(searchId) 
+      : await searchById(searchId);
 
     if (!result) {
       return NextResponse.json(
-        { error: '未找到玩家信息' },
+        { error: 'Failed to find player data' },
         { status: 404 }
       );
     }
 
+    // Add match data to the response for ELO score details
+    try {
+      const token = request.headers.get('x-auth-token') || '';
+      
+      if (result.playerInfo?.steamId64Str && token) {
+        const matchData = await fetchMatchData(result.playerInfo.steamId64Str, token);
+        if (matchData && matchData.statusCode === 0) {
+          // Include match data in the response
+          result.playerStats = matchData;
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching match data:', error);
+      // Continue with the response even if match data fetch fails
+    }
+
     return NextResponse.json(result);
   } catch (error) {
-    console.error('API错误:', error);
+    console.error(error);
     return NextResponse.json(
-      { error: '服务器错误' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
+  }
+}
+
+// Function to fetch match data (ELO score)
+async function fetchMatchData(steamId: string, token: string) {
+  try {
+    const url = 'https://api.wmpvp.com/api/csgo/home/match/list';
+    const timestamp = Math.floor(Date.now() / 1000);
+    
+    const headers = {
+      'Host': 'api.wmpvp.com',
+      'Accept': '*/*',
+      'appversion': '3.5.9',
+      'gameTypeStr': '2',
+      'Accept-Encoding': 'gzip',
+      'Accept-Language': 'zh-Hans-CN;q=1.0',
+      'platform': 'ios',
+      'token': token,
+      'appTheme': '0',
+      't': String(timestamp),
+      'User-Agent': 'esport-app/3.5.9 (com.wmzq.esportapp; build:2; iOS 18.4.0) Alamofire/5.10.2',
+      'gameType': '2',
+      'Connection': 'keep-alive',
+      'Content-Type': 'application/json'
+    };
+    
+    const data = {
+      'pvpType': -1,
+      'mySteamId': 0,
+      'csgoSeasonId': 'recent',
+      'page': 1,
+      'pageSize': 11,
+      'dataSource': 3,
+      'toSteamId': Number(steamId)
+    };
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(data)
+    });
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching match data:', error);
+    return null;
   }
 } 

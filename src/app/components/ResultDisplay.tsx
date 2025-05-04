@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 
 // 类型定义
 interface Weapon {
@@ -32,6 +32,26 @@ interface PlayerInfo {
   name: string | null;
 }
 
+interface MatchData {
+  matchId: string;
+  mapName: string;
+  score1: number;
+  score2: number;
+  startTime: string;
+  pvpScore: number;
+  pvpScoreChange: number;
+  // ... other match properties
+}
+
+interface PlayerStatsData {
+  code: number;
+  data: {
+    pvpScore?: number;
+    matchList?: MatchData[];
+    // ... other stats data
+  };
+}
+
 interface UserInfo {
   code: number;
   data?: {
@@ -47,13 +67,144 @@ interface PlayerData {
   playerInfo: PlayerInfo;
   userInfo: UserInfo | null;
   detailedStats: DetailedData | null;
+  playerStats?: PlayerStatsData | null;
 }
 
 type ResultDisplayProps = {
   data: PlayerData;
 };
 
+// Add global window interface extensions
+declare global {
+  interface Window {
+    eloScoreModal?: HTMLDialogElement;
+    loginModal?: HTMLDialogElement;
+    banInfoModal?: HTMLDialogElement;
+    sendVerificationCode?: () => void;
+    login?: () => void;
+  }
+}
+
 const ResultDisplay: React.FC<ResultDisplayProps> = ({ data }) => {
+  useEffect(() => {
+    // Initialize the window functions
+    window.sendVerificationCode = async () => {
+      console.log('Sending verification code...');
+      // In a real implementation, you would send a request to get a verification code
+      alert('验证码功能暂未实现，请使用有效的验证码');
+    };
+
+    window.login = async () => {
+      const phone = (document.getElementById('phone') as HTMLInputElement)?.value;
+      const code = (document.getElementById('code') as HTMLInputElement)?.value;
+
+      if (!phone || !code) {
+        alert('请输入手机号和验证码');
+        return;
+      }
+
+      try {
+        // Submit login request
+        const response = await fetch('/api/auth', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'login',
+            mobilePhone: phone,
+            securityCode: code,
+          }),
+        });
+
+        const result = await response.json();
+        
+        if (result.code === 0 && result.description === 'Success') {
+          const token = result.result?.loginResult?.accountInfo?.token;
+          
+          if (token) {
+            // Store token in sessionStorage
+            sessionStorage.setItem('authToken', token);
+            
+            // Close login modal
+            window.loginModal?.close();
+            
+            // Check ban status
+            await checkBanStatus(data.playerInfo.steamId64Str, token);
+          } else {
+            alert('登录成功，但未获取到token');
+          }
+        } else {
+          alert(`登录失败: ${result.description || '未知错误'}`);
+        }
+      } catch (error) {
+        console.error('Login error:', error);
+        alert('登录请求失败，请稍后再试');
+      }
+    };
+
+    // Function to check ban status
+    async function checkBanStatus(steamId: string, token: string) {
+      try {
+        // Show ban info modal with loading
+        const banInfoModal = window.banInfoModal as HTMLDialogElement;
+        const banInfoContent = document.getElementById('banInfoContent');
+        
+        if (banInfoContent) {
+          banInfoContent.innerHTML = '<p>正在获取封禁信息...</p>';
+        }
+        
+        banInfoModal?.showModal();
+
+        // Submit ban check request
+        const response = await fetch('/api/auth', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-auth-token': token,
+          },
+          body: JSON.stringify({
+            action: 'checkBan',
+            steamId,
+          }),
+        });
+
+        const result = await response.json();
+        
+        // Update the modal content with ban info
+        if (banInfoContent) {
+          if (result.data && result.data.desc) {
+            const expireTime = result.data.expireTime 
+              ? new Date(result.data.expireTime * 1000).toLocaleString() 
+              : '未知';
+              
+            banInfoContent.innerHTML = `
+              <div class="space-y-3">
+                <p class="text-red-600 font-medium">该用户已被封禁</p>
+                <p>${result.data.desc}</p>
+                <p>解封时间: ${expireTime}</p>
+              </div>
+            `;
+          } else {
+            banInfoContent.innerHTML = '<p class="text-green-600 font-medium">该用户未被封禁</p>';
+          }
+        }
+      } catch (error) {
+        console.error('Ban check error:', error);
+        const banInfoContent = document.getElementById('banInfoContent');
+        if (banInfoContent) {
+          banInfoContent.innerHTML = '<p class="text-red-600">获取封禁信息失败，请稍后再试</p>';
+        }
+      }
+    }
+
+    return () => {
+      // Clean up window functions when component unmounts
+      delete window.sendVerificationCode;
+      delete window.login;
+    };
+  }, [data.playerInfo.steamId64Str]);
+
   if (!data) return null;
 
   const { playerInfo, userInfo, detailedStats } = data;
@@ -90,16 +241,14 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data }) => {
               <p className="text-sm font-medium text-gray-700">用户名</p>
               <p className="font-medium text-gray-900">{userInfo.data.player?.personaname || '未知'}</p>
             </div>
-            <div className="p-4 bg-gray-50 rounded-md">
-              <p className="text-sm font-medium text-gray-700">VAC 封禁</p>
-              <p className={`font-medium ${userInfo.data.vac_banned ? 'text-red-600' : 'text-green-600'}`}>
-                {userInfo.data.vac_banned ? '是' : '否'}
-              </p>
+            <div className="p-4 bg-gray-50 rounded-md cursor-pointer hover:bg-gray-100" onClick={() => window.eloScoreModal?.showModal()}>
+              <p className="text-sm font-medium text-gray-700">ELO 分数</p>
+              <p className="font-medium text-blue-600">{data.playerStats?.data?.pvpScore || '未知'}</p>
             </div>
-            <div className="p-4 bg-gray-50 rounded-md">
+            <div className="p-4 bg-gray-50 rounded-md cursor-pointer hover:bg-gray-100" onClick={() => window.loginModal?.showModal()}>
               <p className="text-sm font-medium text-gray-700">游戏封禁</p>
-              <p className={`font-medium ${userInfo.data.game_ban_count > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                {userInfo.data.game_ban_count || '0'}
+              <p className={`font-medium ${userInfo.data.game_ban_count > 0 ? 'text-red-600' : 'text-blue-600 underline'}`}>
+                {userInfo.data.game_ban_count > 0 ? userInfo.data.game_ban_count : '查看详情'}
               </p>
             </div>
           </div>
@@ -207,6 +356,111 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data }) => {
           </div>
         </div>
       )}
+
+      {/* ELO Score Modal */}
+      <dialog id="eloScoreModal" className="modal">
+        <div className="modal-box">
+          <h3 className="font-bold text-lg">ELO 分数详情</h3>
+          <div className="py-4">
+            <p className="mb-2">当前分数: <span className="font-bold">{data.playerStats?.data?.pvpScore || '未知'}</span></p>
+            <div className="overflow-x-auto mt-4">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">日期</th>
+                    <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">地图</th>
+                    <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">比分</th>
+                    <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">得分变化</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {data.playerStats?.data?.matchList?.slice(0, 5).map((match: any, index: number) => (
+                    <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{match.startTime?.split(' ')[0] || '未知'}</td>
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{match.mapName || '未知'}</td>
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{match.score1}:{match.score2}</td>
+                      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium">
+                        <span className={match.pvpScoreChange > 0 ? 'text-green-600' : match.pvpScoreChange < 0 ? 'text-red-600' : 'text-gray-600'}>
+                          {match.pvpScoreChange > 0 ? `+${match.pvpScoreChange}` : match.pvpScoreChange}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div className="modal-action">
+            <form method="dialog">
+              <button className="btn">关闭</button>
+            </form>
+          </div>
+        </div>
+      </dialog>
+
+      {/* Login Modal */}
+      <dialog id="loginModal" className="modal">
+        <div className="modal-box">
+          <h3 className="font-bold text-lg">登录查看详情</h3>
+          <div className="py-4">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">手机号</label>
+                <input
+                  type="tel"
+                  id="phone"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="请输入手机号"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">验证码</label>
+                <div className="flex mt-1">
+                  <input
+                    type="text"
+                    id="code"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="请输入验证码"
+                  />
+                  <button
+                    type="button"
+                    className="ml-2 px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none"
+                    onClick={() => window.sendVerificationCode?.()}
+                  >
+                    获取验证码
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="modal-action">
+            <button
+              className="btn bg-indigo-600 text-white hover:bg-indigo-700"
+              onClick={() => window.login?.()}
+            >
+              登录
+            </button>
+            <form method="dialog">
+              <button className="btn">取消</button>
+            </form>
+          </div>
+        </div>
+      </dialog>
+
+      {/* Ban Info Modal */}
+      <dialog id="banInfoModal" className="modal">
+        <div className="modal-box">
+          <h3 className="font-bold text-lg">封禁信息</h3>
+          <div id="banInfoContent" className="py-4">
+            <p>正在获取封禁信息...</p>
+          </div>
+          <div className="modal-action">
+            <form method="dialog">
+              <button className="btn">关闭</button>
+            </form>
+          </div>
+        </div>
+      </dialog>
 
       {/* 如果没有数据 */}
       {!userInfo && !detailedStats && (
