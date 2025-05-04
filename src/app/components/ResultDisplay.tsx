@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 
 // 类型定义
 interface Weapon {
@@ -85,8 +85,63 @@ declare global {
 }
 
 const ResultDisplay: React.FC<ResultDisplayProps> = ({ data }) => {
+  // 检查封禁状态的函数
+  const checkBanStatus = useCallback(async (steamId: string, token: string) => {
+    try {
+      // 显示封禁信息模态框，并显示加载中
+      const banInfoModal = window.banInfoModal as HTMLDialogElement;
+      const banInfoContent = document.getElementById('banInfoContent');
+      
+      if (banInfoContent) {
+        banInfoContent.innerHTML = '<p class="text-center">正在获取封禁信息...</p>';
+      }
+      
+      banInfoModal?.showModal();
+
+      // 提交封禁检查请求
+      const response = await fetch('/api/auth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-auth-token': token,
+        },
+        body: JSON.stringify({
+          action: 'checkBan',
+          steamId,
+        }),
+      });
+
+      const result = await response.json();
+      
+      // 使用封禁信息更新模态框内容
+      if (banInfoContent) {
+        if (result.data && result.data.desc) {
+          const expireTime = result.data.expireTime 
+            ? new Date(result.data.expireTime * 1000).toLocaleString() 
+            : '未知';
+            
+          banInfoContent.innerHTML = `
+            <div class="space-y-3">
+              <p class="text-red-600 font-medium">该用户已被封禁</p>
+              <p>${result.data.desc}</p>
+              <p>解封时间: ${expireTime}</p>
+            </div>
+          `;
+        } else {
+          banInfoContent.innerHTML = '<p class="text-green-600 font-medium text-center">该用户未被封禁</p>';
+        }
+      }
+    } catch (error) {
+      console.error('Ban check error:', error);
+      const banInfoContent = document.getElementById('banInfoContent');
+      if (banInfoContent) {
+        banInfoContent.innerHTML = '<p class="text-red-600 text-center">获取封禁信息失败，请稍后再试</p>';
+      }
+    }
+  }, []);
+
   useEffect(() => {
-    // Initialize the login function
+    // 初始化登录函数
     window.login = async () => {
       const phone = (document.getElementById('phone') as HTMLInputElement)?.value;
       const code = (document.getElementById('code') as HTMLInputElement)?.value;
@@ -97,14 +152,14 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data }) => {
       }
 
       try {
-        // Show loading state
-        const loginButton = document.querySelector('#loginModal button.bg-blue-600') as HTMLButtonElement;
+        // 显示加载状态
+        const loginButton = document.querySelector('#loginModal button.btn-blue') as HTMLButtonElement;
         if (loginButton) {
           loginButton.disabled = true;
           loginButton.textContent = '登录中...';
         }
 
-        // Submit login request
+        // 提交登录请求
         const response = await fetch('/api/auth', {
           method: 'POST',
           headers: {
@@ -119,7 +174,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data }) => {
 
         const result = await response.json();
         
-        // Reset button state
+        // 重置按钮状态
         if (loginButton) {
           loginButton.disabled = false;
           loginButton.textContent = '登录';
@@ -129,13 +184,13 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data }) => {
           const token = result.result?.loginResult?.accountInfo?.token;
           
           if (token) {
-            // Store token in sessionStorage
+            // 将令牌存储在 sessionStorage 中
             sessionStorage.setItem('authToken', token);
             
-            // Close login modal
+            // 关闭登录模态框
             window.loginModal?.close();
             
-            // Check ban status
+            // 检查封禁状态
             await checkBanStatus(data.playerInfo.steamId64Str, token);
           } else {
             alert('登录成功，但未获取到token');
@@ -147,8 +202,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data }) => {
         console.error('Login error:', error);
         alert('登录请求失败，请稍后再试');
         
-        // Reset button state on error
-        const loginButton = document.querySelector('#loginModal button.bg-blue-600') as HTMLButtonElement;
+        // 出错时重置按钮状态
+        const loginButton = document.querySelector('#loginModal button.btn-blue') as HTMLButtonElement;
         if (loginButton) {
           loginButton.disabled = false;
           loginButton.textContent = '登录';
@@ -156,66 +211,11 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data }) => {
       }
     };
 
-    // Function to check ban status
-    async function checkBanStatus(steamId: string, token: string) {
-      try {
-        // Show ban info modal with loading
-        const banInfoModal = window.banInfoModal as HTMLDialogElement;
-        const banInfoContent = document.getElementById('banInfoContent');
-        
-        if (banInfoContent) {
-          banInfoContent.innerHTML = '<p class="text-center">正在获取封禁信息...</p>';
-        }
-        
-        banInfoModal?.showModal();
-
-        // Submit ban check request
-        const response = await fetch('/api/auth', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-auth-token': token,
-          },
-          body: JSON.stringify({
-            action: 'checkBan',
-            steamId,
-          }),
-        });
-
-        const result = await response.json();
-        
-        // Update the modal content with ban info
-        if (banInfoContent) {
-          if (result.data && result.data.desc) {
-            const expireTime = result.data.expireTime 
-              ? new Date(result.data.expireTime * 1000).toLocaleString() 
-              : '未知';
-              
-            banInfoContent.innerHTML = `
-              <div class="space-y-3">
-                <p class="text-red-600 font-medium">该用户已被封禁</p>
-                <p>${result.data.desc}</p>
-                <p>解封时间: ${expireTime}</p>
-              </div>
-            `;
-          } else {
-            banInfoContent.innerHTML = '<p class="text-green-600 font-medium text-center">该用户未被封禁</p>';
-          }
-        }
-      } catch (error) {
-        console.error('Ban check error:', error);
-        const banInfoContent = document.getElementById('banInfoContent');
-        if (banInfoContent) {
-          banInfoContent.innerHTML = '<p class="text-red-600 text-center">获取封禁信息失败，请稍后再试</p>';
-        }
-      }
-    }
-
     return () => {
-      // Clean up window functions when component unmounts
+      // 组件卸载时清理窗口函数
       delete window.login;
     };
-  }, [data.playerInfo.steamId64Str]);
+  }, [data.playerInfo.steamId64Str, checkBanStatus]);
 
   if (!data) return null;
 
@@ -253,11 +253,24 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data }) => {
               <p className="text-sm font-medium text-gray-700">用户名</p>
               <p className="font-medium text-gray-900">{userInfo.data.player?.personaname || '未知'}</p>
             </div>
-            <div className="p-4 bg-gray-50 rounded-md cursor-pointer hover:bg-gray-100" onClick={() => window.eloScoreModal?.showModal()}>
+            <div className="p-4 bg-gray-50 rounded-md cursor-pointer hover:bg-gray-100" onClick={() => {
+              if (data.playerStats?.data?.pvpScore) {
+                window.eloScoreModal?.showModal();
+              } else {
+                window.loginModal?.showModal();
+              }
+            }}>
               <p className="text-sm font-medium text-gray-700">ELO 分数</p>
               <p className="font-medium text-blue-600">{data.playerStats?.data?.pvpScore || '未知'}</p>
             </div>
-            <div className="p-4 bg-gray-50 rounded-md cursor-pointer hover:bg-gray-100" onClick={() => window.loginModal?.showModal()}>
+            <div className="p-4 bg-gray-50 rounded-md cursor-pointer hover:bg-gray-100" onClick={() => {
+              const token = sessionStorage.getItem('authToken');
+              if (token) {
+                checkBanStatus(data.playerInfo.steamId64Str, token);
+              } else {
+                window.loginModal?.showModal();
+              }
+            }}>
               <p className="text-sm font-medium text-gray-700">游戏封禁</p>
               <p className={`font-medium ${userInfo.data.game_ban_count > 0 ? 'text-red-600' : 'text-blue-600 underline'}`}>
                 {userInfo.data.game_ban_count > 0 ? userInfo.data.game_ban_count : '查看详情'}
