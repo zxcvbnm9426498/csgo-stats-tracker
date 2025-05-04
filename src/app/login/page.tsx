@@ -38,10 +38,20 @@ export default function LoginPage() {
       
       if (result.code === 0 && result.description === 'Success') {
         const token = result.result?.loginResult?.accountInfo?.token;
+        const userId = result.result?.loginResult?.accountInfo?.userId;
+        const loggedInPhone = result.result?.loginResult?.accountInfo?.mobilePhone;
         
         if (token) {
-          // 将令牌存储在 sessionStorage 中
+          // 将令牌和用户信息存储在 sessionStorage 中
           sessionStorage.setItem('authToken', token);
+          if (loggedInPhone) {
+            sessionStorage.setItem('loggedInUserPhone', loggedInPhone);
+            console.log(`[Login] Stored phone: ${loggedInPhone}`);
+          }
+          if (userId) {
+            sessionStorage.setItem('loggedInUserId', userId.toString());
+            console.log(`[Login] Stored userId: ${userId}`);
+          }
           
           toast.success('登录成功');
           
