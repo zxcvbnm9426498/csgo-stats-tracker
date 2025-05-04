@@ -80,68 +80,12 @@ type ResultDisplayProps = {
 declare global {
   interface Window {
     eloScoreModal?: HTMLDialogElement;
-    banInfoModal?: HTMLDialogElement;
   }
 }
 
 const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false }) => {
   const router = useRouter();
   
-  // 检查封禁状态的函数
-  const checkBanStatus = useCallback(async (steamId: string, token: string) => {
-    try {
-      // 显示封禁信息模态框，并显示加载中
-      const banInfoModal = window.banInfoModal as HTMLDialogElement;
-      const banInfoContent = document.getElementById('banInfoContent');
-      
-      if (banInfoContent) {
-        banInfoContent.innerHTML = '<p class="text-center">正在获取封禁信息...</p>';
-      }
-      
-      banInfoModal?.showModal();
-
-      // 提交封禁检查请求
-      const response = await fetch('/api/auth', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-auth-token': token,
-        },
-        body: JSON.stringify({
-          action: 'checkBan',
-          steamId,
-        }),
-      });
-
-      const result = await response.json();
-      
-      // 使用封禁信息更新模态框内容
-      if (banInfoContent) {
-        if (result.data && result.data.desc) {
-          const expireTime = result.data.expireTime 
-            ? new Date(result.data.expireTime * 1000).toLocaleString() 
-            : '未知';
-            
-          banInfoContent.innerHTML = `
-            <div class="space-y-3">
-              <p class="text-red-600 font-medium">该用户已被封禁</p>
-              <p>${result.data.desc}</p>
-              <p>解封时间: ${expireTime}</p>
-            </div>
-          `;
-        } else {
-          banInfoContent.innerHTML = '<p class="text-green-600 font-medium text-center">该用户未被封禁</p>';
-        }
-      }
-    } catch (error) {
-      console.error('Ban check error:', error);
-      const banInfoContent = document.getElementById('banInfoContent');
-      if (banInfoContent) {
-        banInfoContent.innerHTML = '<p class="text-red-600 text-center">获取封禁信息失败，请稍后再试</p>';
-      }
-    }
-  }, []);
-
   // 导航到登录页面
   const navigateToLogin = useCallback(() => {
     router.push('/login');
@@ -152,7 +96,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false 
     return () => {
       // 组件卸载时清理
     };
-  }, [data.playerInfo.steamId64Str, checkBanStatus]);
+  }, []);
 
   if (!data) return null;
 
@@ -200,17 +144,10 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false 
               <p className="text-sm font-medium text-gray-700">ELO 分数</p>
               <p className="font-medium text-blue-600">{data.playerStats?.data?.pvpScore || '未知'}</p>
             </div>
-            <div className="p-4 bg-gray-50 rounded-md cursor-pointer hover:bg-gray-100" onClick={() => {
-              const token = sessionStorage.getItem('authToken');
-              if (token) {
-                checkBanStatus(data.playerInfo.steamId64Str, token);
-              } else if (!isLoggedIn) {
-                navigateToLogin();
-              }
-            }}>
+            <div className="p-4 bg-gray-50 rounded-md">
               <p className="text-sm font-medium text-gray-700">游戏封禁</p>
-              <p className={`font-medium ${userInfo.data.game_ban_count > 0 ? 'text-red-600' : 'text-blue-600 underline'}`}>
-                {userInfo.data.game_ban_count > 0 ? userInfo.data.game_ban_count : '查看详情'}
+              <p className={`font-medium ${userInfo.data.game_ban_count > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                {userInfo.data.game_ban_count > 0 ? `${userInfo.data.game_ban_count} 次` : '无封禁记录'}
               </p>
             </div>
           </div>
@@ -351,21 +288,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false 
                 </tbody>
               </table>
             </div>
-          </div>
-          <div className="modal-action center border-t pt-2">
-            <form method="dialog">
-              <button className="btn btn-blue px-8">关闭</button>
-            </form>
-          </div>
-        </div>
-      </dialog>
-
-      {/* Ban Info Modal */}
-      <dialog id="banInfoModal" className="modal">
-        <div className="modal-box">
-          <h3 className="font-bold text-lg text-center border-b pb-2 mb-2">封禁信息</h3>
-          <div id="banInfoContent" className="py-6 px-4">
-            <p className="text-center">正在获取封禁信息...</p>
           </div>
           <div className="modal-action center border-t pt-2">
             <form method="dialog">
