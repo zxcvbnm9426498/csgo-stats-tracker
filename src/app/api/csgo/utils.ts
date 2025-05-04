@@ -253,7 +253,7 @@ async function searchPlayerById(searchText: string): Promise<PlayerData | null> 
 }
 
 // 从备用API获取Steam ID
-async function getSteamIdFromAlternativeApi(userId: string) {
+export async function getSteamIdFromAlternativeApi(userId: string) {
   try {
     const headers = getAlternativeApiHeaders();
     const params = {
