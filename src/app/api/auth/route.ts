@@ -125,39 +125,40 @@ export async function POST(request: NextRequest) {
       };
 
       try {
-        console.log(`Sending request to ${url} with steamId: ${steamId}`);
-        console.log('Request headers:', JSON.stringify(headers, null, 2));
-        console.log('Request payload:', JSON.stringify(payload, null, 2));
+        console.log(`[API] 发送请求到 ${url} 获取玩家 ${steamId} 的ELO分数`);
+        console.log('[API] 请求头:', JSON.stringify(headers, null, 2));
+        console.log('[API] 请求体:', JSON.stringify(payload, null, 2));
 
         const response = await axios.post(url, payload, { 
           headers: headers,
           validateStatus: () => true // Accept any status code
         });
 
+        console.log(`[API] 收到响应状态码: ${response.status}`);
+        
         // 检查响应中是否有数据
-        console.log('Response status:', response.status);
-        console.log('Response data:', JSON.stringify(response.data, null, 2));
-
         if (response.data && response.data.statusCode === 0) {
-          if (!response.data.data || !response.data.data.matchList || response.data.data.matchList.length === 0) {
-            console.log('No match data found for steamId:', steamId);
+          if (response.data.data && response.data.data.matchList && response.data.data.matchList.length > 0) {
+            // 从第一条比赛记录获取pvpScore
+            const firstMatch = response.data.data.matchList[0];
+            const pvpScore = firstMatch.pvpScore;
+            
+            console.log(`[API] 成功获取比赛数据，第一条记录的ELO分数: ${pvpScore}`);
+            
+            // 在响应数据中添加pvpScore
+            response.data.data.pvpScore = pvpScore;
+            
+            console.log(`[API] 将ELO分数 ${pvpScore} 添加到响应数据中`);
           } else {
-            console.log('Successfully retrieved match data');
-            // 如果有matchList数据，从中提取pvpScore
-            if (response.data.data.matchList.length > 0) {
-              const firstMatch = response.data.data.matchList[0];
-              console.log('First match pvpScore:', firstMatch.pvpScore);
-              // 将pvpScore添加到data层级
-              response.data.data.pvpScore = firstMatch.pvpScore;
-            }
+            console.log('[API] 未找到比赛记录数据，matchList为空');
           }
         } else {
-          console.error('API Error:', response.data);
+          console.error('[API] API响应错误:', response.data);
         }
 
         return NextResponse.json(response.data);
       } catch (error) {
-        console.error('Error fetching ELO score:', error);
+        console.error('[API] 获取ELO分数时出错:', error);
         return NextResponse.json(
           { error: '获取ELO分数失败' },
           { status: 500 }

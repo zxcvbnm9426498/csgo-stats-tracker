@@ -86,8 +86,10 @@ export default function Home() {
   // 更新玩家数据（获取ELO分数和封禁信息）
   const updatePlayerData = async (steamId: string, token: string) => {
     try {
-      console.log('Requesting ELO score for steamId:', steamId);
+      console.log('[页面] 开始请求玩家数据，steamId:', steamId);
+      
       // 获取ELO分数
+      console.log('[页面] 请求ELO分数');
       const eloResponse = await fetch('/api/auth', {
         method: 'POST',
         headers: {
@@ -101,7 +103,7 @@ export default function Home() {
       });
       
       const eloData = await eloResponse.json();
-      console.log('ELO data response:', eloData);
+      console.log('[页面] 收到ELO数据响应:', eloData);
       
       if (eloData.statusCode === 0 && eloData.data) {
         let pvpScore = null;
@@ -110,14 +112,15 @@ export default function Home() {
         if (eloData.data.pvpScore) {
           // 如果API直接返回了pvpScore
           pvpScore = eloData.data.pvpScore;
+          console.log('[页面] 从API响应中直接获取到pvpScore:', pvpScore);
         } else if (eloData.data.matchList && eloData.data.matchList.length > 0) {
           // 如果有比赛列表，从第一场比赛中获取
           pvpScore = eloData.data.matchList[0].pvpScore;
+          console.log('[页面] 从第一场比赛记录中获取pvpScore:', pvpScore);
         }
         
-        console.log('Found pvpScore:', pvpScore);
-        
         if (pvpScore) {
+          console.log('[页面] 更新UI显示ELO分数:', pvpScore);
           setPlayerData(prevData => {
             if (!prevData) return null;
             return {
@@ -132,12 +135,14 @@ export default function Home() {
             };
           });
         } else {
-          console.log('No pvpScore found in response');
+          console.log('[页面] 未找到pvpScore');
         }
+      } else {
+        console.error('[页面] 获取ELO分数失败:', eloData);
       }
       
       // 获取封禁信息
-      console.log('Requesting ban info for steamId:', steamId);
+      console.log('[页面] 请求封禁信息');
       const banResponse = await fetch('/api/auth', {
         method: 'POST',
         headers: {
@@ -151,10 +156,11 @@ export default function Home() {
       });
       
       const banData = await banResponse.json();
-      console.log('Ban data response:', banData);
+      console.log('[页面] 收到封禁信息响应:', banData);
       
       // 如果有封禁信息，更新到userInfo中
       if (banData.statusCode === 0 && banData.data) {
+        console.log('[页面] 更新UI显示封禁信息');
         setPlayerData(prevData => {
           if (!prevData || !prevData.userInfo) return prevData;
           return {
@@ -167,7 +173,7 @@ export default function Home() {
         });
       }
     } catch (error) {
-      console.error('更新玩家数据时出错:', error);
+      console.error('[页面] 更新玩家数据时出错:', error);
     }
   };
 

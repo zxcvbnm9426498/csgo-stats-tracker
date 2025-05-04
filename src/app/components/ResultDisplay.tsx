@@ -137,6 +137,11 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false 
                   ? `${data.playerStats.data.pvpScore}` 
                   : isLoggedIn ? '加载中...' : '登录后可见'}
               </p>
+              {data.playerStats?.data?.matchList && data.playerStats.data.matchList.length > 0 && (
+                <p className="text-xs text-gray-500 mt-1">
+                  最近比赛: {data.playerStats.data.matchList[0].mapName} ({data.playerStats.data.matchList[0].score1}:{data.playerStats.data.matchList[0].score2})
+                </p>
+              )}
             </div>
             <div className="p-4 bg-gray-50 rounded-md">
               <p className="text-sm font-medium text-gray-700">游戏封禁</p>
