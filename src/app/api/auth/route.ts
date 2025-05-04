@@ -124,12 +124,31 @@ export async function POST(request: NextRequest) {
         "toSteamId": Number(steamId)
       };
 
-      const response = await axios.post(url, payload, { 
-        headers: headers,
-        validateStatus: () => true // Accept any status code
-      });
+      try {
+        const response = await axios.post(url, payload, { 
+          headers: headers,
+          validateStatus: () => true // Accept any status code
+        });
 
-      return NextResponse.json(response.data);
+        // 检查响应中是否有数据
+        if (response.data && response.data.statusCode === 0) {
+          if (!response.data.data || !response.data.data.matchList || response.data.data.matchList.length === 0) {
+            console.log('No match data found for steamId:', steamId);
+          } else {
+            console.log('Successfully retrieved match data');
+          }
+        } else {
+          console.error('API Error:', response.data);
+        }
+
+        return NextResponse.json(response.data);
+      } catch (error) {
+        console.error('Error fetching ELO score:', error);
+        return NextResponse.json(
+          { error: '获取ELO分数失败' },
+          { status: 500 }
+        );
+      }
     }
 
     return NextResponse.json(

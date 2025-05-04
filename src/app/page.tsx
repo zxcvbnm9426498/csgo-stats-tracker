@@ -62,17 +62,31 @@ export default function Home() {
   useEffect(() => {
     // 检查用户是否已登录
     const authToken = sessionStorage.getItem('authToken');
+    const wasLoggedIn = isLoggedIn;
     setIsLoggedIn(!!authToken);
     
-    // 如果用户已登录且有玩家数据，则获取额外的信息
-    if (authToken && playerData?.playerInfo?.steamId64Str) {
+    // 如果用户登录状态发生变化（从未登录到已登录）并且有玩家数据，则获取额外信息
+    if (!!authToken && !wasLoggedIn && playerData?.playerInfo?.steamId64Str) {
+      console.log('Login state changed, updating player data...');
       updatePlayerData(playerData.playerInfo.steamId64Str, authToken);
     }
   }, [isLoggedIn, playerData?.playerInfo?.steamId64Str]);
 
+  // 在搜索结果返回后，如果已登录，立即请求额外数据
+  useEffect(() => {
+    if (playerData?.playerInfo?.steamId64Str && isLoggedIn) {
+      const authToken = sessionStorage.getItem('authToken');
+      if (authToken) {
+        console.log('Player data loaded, updating with additional info...');
+        updatePlayerData(playerData.playerInfo.steamId64Str, authToken);
+      }
+    }
+  }, [playerData?.playerInfo?.steamId64Str]);
+
   // 更新玩家数据（获取ELO分数和封禁信息）
   const updatePlayerData = async (steamId: string, token: string) => {
     try {
+      console.log('Requesting ELO score for steamId:', steamId);
       // 获取ELO分数
       const eloResponse = await fetch('/api/auth', {
         method: 'POST',
@@ -87,21 +101,33 @@ export default function Home() {
       });
       
       const eloData = await eloResponse.json();
+      console.log('ELO data response:', eloData);
       
       if (eloData.statusCode === 0 && eloData.data) {
+        // 即使matchList为空，仍然可能有pvpScore
+        let pvpScore = null;
+        if (eloData.data.matchList && eloData.data.matchList.length > 0) {
+          // 获取最新比赛的分数
+          pvpScore = eloData.data.matchList[0].pvpScore;
+        }
+        
         setPlayerData(prevData => {
           if (!prevData) return null;
           return {
             ...prevData,
             playerStats: {
               code: 0,
-              data: eloData.data
+              data: {
+                ...eloData.data,
+                pvpScore: pvpScore // 使用最新的比赛分数
+              }
             }
           };
         });
       }
       
       // 获取封禁信息
+      console.log('Requesting ban info for steamId:', steamId);
       const banResponse = await fetch('/api/auth', {
         method: 'POST',
         headers: {
@@ -115,6 +141,7 @@ export default function Home() {
       });
       
       const banData = await banResponse.json();
+      console.log('Ban data response:', banData);
       
       // 如果有封禁信息，更新到userInfo中
       if (banData.statusCode === 0 && banData.data) {
