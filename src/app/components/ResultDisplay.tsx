@@ -153,7 +153,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false 
             <div className="p-4 bg-gray-50 rounded-md">
               <p className="text-sm font-medium text-gray-700">ELO 分数</p>
               <p className="font-medium text-blue-600">
-                {data.playerStats?.data?.pvpScore 
+                {(data.playerStats?.data?.pvpScore !== null && data.playerStats?.data?.pvpScore !== undefined)
                   ? `${data.playerStats.data.pvpScore}` 
                   : isLoggedIn ? '加载中...' : '登录后可见'}
               </p>
