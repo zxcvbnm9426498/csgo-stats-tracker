@@ -61,9 +61,11 @@ interface UserInfo {
     };
     vac_banned: boolean;
     game_ban_count: number;
+    expireTime?: number;
   };
   banInfo?: {
     desc: string;
+    expireTime?: number;
   };
 }
 
@@ -77,6 +79,24 @@ interface PlayerData {
 type ResultDisplayProps = {
   data: PlayerData;
   isLoggedIn?: boolean;
+};
+
+// Helper function to format Unix timestamp to readable string
+const formatTimestamp = (timestamp: number | null): string => {
+  if (!timestamp) return '未知时间';
+  try {
+    // Multiply by 1000 because JS Date expects milliseconds
+    return new Date(timestamp * 1000).toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric'
+    });
+  } catch (error) {
+    console.error('Error formatting timestamp:', error);
+    return '无效时间格式';
+  }
 };
 
 const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false }) => {
@@ -146,10 +166,10 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false 
             <div className="p-4 bg-gray-50 rounded-md">
               <p className="text-sm font-medium text-gray-700">游戏封禁</p>
               <p className={`font-medium ${userInfo.data.game_ban_count > 0 || userInfo.banInfo?.desc ? 'text-red-600' : 'text-green-600'}`}>
-                {userInfo.data.game_ban_count > 0 
-                  ? `${userInfo.data.game_ban_count} 次` 
-                  : userInfo.banInfo?.desc
-                    ? userInfo.banInfo.desc
+                {userInfo.banInfo?.desc
+                  ? `${userInfo.banInfo.desc} ${formatTimestamp(userInfo.banInfo.expireTime ?? null)}`
+                  : userInfo.data.game_ban_count > 0 
+                    ? `${userInfo.data.game_ban_count} 次` 
                     : '无封禁记录'}
               </p>
             </div>
