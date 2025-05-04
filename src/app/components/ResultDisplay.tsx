@@ -1,4 +1,5 @@
 import React, { useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 
 // 类型定义
 interface Weapon {
@@ -72,19 +73,20 @@ interface PlayerData {
 
 type ResultDisplayProps = {
   data: PlayerData;
+  isLoggedIn?: boolean;
 };
 
 // Add global window interface extensions
 declare global {
   interface Window {
     eloScoreModal?: HTMLDialogElement;
-    loginModal?: HTMLDialogElement;
     banInfoModal?: HTMLDialogElement;
-    login?: () => void;
   }
 }
 
-const ResultDisplay: React.FC<ResultDisplayProps> = ({ data }) => {
+const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false }) => {
+  const router = useRouter();
+  
   // 检查封禁状态的函数
   const checkBanStatus = useCallback(async (steamId: string, token: string) => {
     try {
@@ -140,80 +142,15 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data }) => {
     }
   }, []);
 
+  // 导航到登录页面
+  const navigateToLogin = useCallback(() => {
+    router.push('/login');
+  }, [router]);
+
   useEffect(() => {
-    // 初始化登录函数
-    window.login = async () => {
-      const phone = (document.getElementById('phone') as HTMLInputElement)?.value;
-      const code = (document.getElementById('code') as HTMLInputElement)?.value;
-
-      if (!phone || !code) {
-        alert('请输入手机号和验证码');
-        return;
-      }
-
-      try {
-        // 显示加载状态
-        const loginButton = document.querySelector('#loginModal button.btn-blue') as HTMLButtonElement;
-        if (loginButton) {
-          loginButton.disabled = true;
-          loginButton.textContent = '登录中...';
-        }
-
-        // 提交登录请求
-        const response = await fetch('/api/auth', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            action: 'login',
-            mobilePhone: phone,
-            securityCode: code,
-          }),
-        });
-
-        const result = await response.json();
-        
-        // 重置按钮状态
-        if (loginButton) {
-          loginButton.disabled = false;
-          loginButton.textContent = '登录';
-        }
-        
-        if (result.code === 0 && result.description === 'Success') {
-          const token = result.result?.loginResult?.accountInfo?.token;
-          
-          if (token) {
-            // 将令牌存储在 sessionStorage 中
-            sessionStorage.setItem('authToken', token);
-            
-            // 关闭登录模态框
-            window.loginModal?.close();
-            
-            // 检查封禁状态
-            await checkBanStatus(data.playerInfo.steamId64Str, token);
-          } else {
-            alert('登录成功，但未获取到token');
-          }
-        } else {
-          alert(`登录失败: ${result.description || '未知错误'}`);
-        }
-      } catch (error) {
-        console.error('Login error:', error);
-        alert('登录请求失败，请稍后再试');
-        
-        // 出错时重置按钮状态
-        const loginButton = document.querySelector('#loginModal button.btn-blue') as HTMLButtonElement;
-        if (loginButton) {
-          loginButton.disabled = false;
-          loginButton.textContent = '登录';
-        }
-      }
-    };
-
+    // 初始化这部分不再需要
     return () => {
-      // 组件卸载时清理窗口函数
-      delete window.login;
+      // 组件卸载时清理
     };
   }, [data.playerInfo.steamId64Str, checkBanStatus]);
 
@@ -256,8 +193,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data }) => {
             <div className="p-4 bg-gray-50 rounded-md cursor-pointer hover:bg-gray-100" onClick={() => {
               if (data.playerStats?.data?.pvpScore) {
                 window.eloScoreModal?.showModal();
-              } else {
-                window.loginModal?.showModal();
+              } else if (!isLoggedIn) {
+                navigateToLogin();
               }
             }}>
               <p className="text-sm font-medium text-gray-700">ELO 分数</p>
@@ -267,8 +204,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data }) => {
               const token = sessionStorage.getItem('authToken');
               if (token) {
                 checkBanStatus(data.playerInfo.steamId64Str, token);
-              } else {
-                window.loginModal?.showModal();
+              } else if (!isLoggedIn) {
+                navigateToLogin();
               }
             }}>
               <p className="text-sm font-medium text-gray-700">游戏封禁</p>
@@ -418,46 +355,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data }) => {
           <div className="modal-action center border-t pt-2">
             <form method="dialog">
               <button className="btn btn-blue px-8">关闭</button>
-            </form>
-          </div>
-        </div>
-      </dialog>
-
-      {/* Login Modal */}
-      <dialog id="loginModal" className="modal">
-        <div className="modal-box">
-          <h3 className="font-bold text-lg text-center border-b pb-2 mb-4">登录查看详情</h3>
-          <div className="py-2 px-4">
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">手机号</label>
-                <input
-                  type="tel"
-                  id="phone"
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="请输入手机号"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">验证码</label>
-                <input
-                  type="text"
-                  id="code"
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="请输入验证码"
-                />
-              </div>
-            </div>
-          </div>
-          <div className="modal-action center border-t pt-4">
-            <button
-              className="btn btn-blue px-8 mr-2"
-              onClick={() => window.login?.()}
-            >
-              登录
-            </button>
-            <form method="dialog">
-              <button className="btn btn-gray px-8">取消</button>
             </form>
           </div>
         </div>

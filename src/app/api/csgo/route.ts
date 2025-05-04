@@ -5,6 +5,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { searchType, searchId } = body;
+    const token = request.headers.get('x-auth-token') || '';
 
     if (!searchType || !searchId) {
       return NextResponse.json(
@@ -24,20 +25,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Add match data to the response for ELO score details
-    try {
-      const token = request.headers.get('x-auth-token') || '';
-      
-      if (result.playerInfo?.steamId64Str && token) {
+    // 如果有token，添加额外数据到响应
+    if (result.playerInfo?.steamId64Str && token) {
+      try {
+        // 获取比赛数据（ELO分数详情）
         const matchData = await fetchMatchData(result.playerInfo.steamId64Str, token);
         if (matchData && matchData.statusCode === 0) {
-          // Include match data in the response
+          // 包含比赛数据在响应中
           result.playerStats = matchData;
         }
+      } catch (error) {
+        console.error('Error fetching match data:', error);
+        // 即使获取比赛数据失败，也继续返回响应
       }
-    } catch (error) {
-      console.error('Error fetching match data:', error);
-      // Continue with the response even if match data fetch fails
     }
 
     return NextResponse.json(result);
