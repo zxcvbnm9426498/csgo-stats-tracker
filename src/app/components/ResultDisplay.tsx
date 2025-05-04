@@ -80,20 +80,13 @@ declare global {
     eloScoreModal?: HTMLDialogElement;
     loginModal?: HTMLDialogElement;
     banInfoModal?: HTMLDialogElement;
-    sendVerificationCode?: () => void;
     login?: () => void;
   }
 }
 
 const ResultDisplay: React.FC<ResultDisplayProps> = ({ data }) => {
   useEffect(() => {
-    // Initialize the window functions
-    window.sendVerificationCode = async () => {
-      console.log('Sending verification code...');
-      // In a real implementation, you would send a request to get a verification code
-      alert('验证码功能暂未实现，请使用有效的验证码');
-    };
-
+    // Initialize the login function
     window.login = async () => {
       const phone = (document.getElementById('phone') as HTMLInputElement)?.value;
       const code = (document.getElementById('code') as HTMLInputElement)?.value;
@@ -104,6 +97,13 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data }) => {
       }
 
       try {
+        // Show loading state
+        const loginButton = document.querySelector('#loginModal button.bg-blue-600') as HTMLButtonElement;
+        if (loginButton) {
+          loginButton.disabled = true;
+          loginButton.textContent = '登录中...';
+        }
+
         // Submit login request
         const response = await fetch('/api/auth', {
           method: 'POST',
@@ -118,6 +118,12 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data }) => {
         });
 
         const result = await response.json();
+        
+        // Reset button state
+        if (loginButton) {
+          loginButton.disabled = false;
+          loginButton.textContent = '登录';
+        }
         
         if (result.code === 0 && result.description === 'Success') {
           const token = result.result?.loginResult?.accountInfo?.token;
@@ -140,6 +146,13 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data }) => {
       } catch (error) {
         console.error('Login error:', error);
         alert('登录请求失败，请稍后再试');
+        
+        // Reset button state on error
+        const loginButton = document.querySelector('#loginModal button.bg-blue-600') as HTMLButtonElement;
+        if (loginButton) {
+          loginButton.disabled = false;
+          loginButton.textContent = '登录';
+        }
       }
     };
 
@@ -151,7 +164,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data }) => {
         const banInfoContent = document.getElementById('banInfoContent');
         
         if (banInfoContent) {
-          banInfoContent.innerHTML = '<p>正在获取封禁信息...</p>';
+          banInfoContent.innerHTML = '<p class="text-center">正在获取封禁信息...</p>';
         }
         
         banInfoModal?.showModal();
@@ -186,21 +199,20 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data }) => {
               </div>
             `;
           } else {
-            banInfoContent.innerHTML = '<p class="text-green-600 font-medium">该用户未被封禁</p>';
+            banInfoContent.innerHTML = '<p class="text-green-600 font-medium text-center">该用户未被封禁</p>';
           }
         }
       } catch (error) {
         console.error('Ban check error:', error);
         const banInfoContent = document.getElementById('banInfoContent');
         if (banInfoContent) {
-          banInfoContent.innerHTML = '<p class="text-red-600">获取封禁信息失败，请稍后再试</p>';
+          banInfoContent.innerHTML = '<p class="text-red-600 text-center">获取封禁信息失败，请稍后再试</p>';
         }
       }
     }
 
     return () => {
       // Clean up window functions when component unmounts
-      delete window.sendVerificationCode;
       delete window.login;
     };
   }, [data.playerInfo.steamId64Str]);
@@ -358,8 +370,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data }) => {
       )}
 
       {/* ELO Score Modal */}
-      <dialog id="eloScoreModal" className="modal">
-        <div className="modal-box">
+      <dialog id="eloScoreModal" className="modal modal-middle">
+        <div className="modal-box max-w-xl">
           <h3 className="font-bold text-lg">ELO 分数详情</h3>
           <div className="py-4">
             <p className="mb-2">当前分数: <span className="font-bold">{data.playerStats?.data?.pvpScore || '未知'}</span></p>
@@ -399,43 +411,34 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data }) => {
       </dialog>
 
       {/* Login Modal */}
-      <dialog id="loginModal" className="modal">
-        <div className="modal-box">
-          <h3 className="font-bold text-lg">登录查看详情</h3>
-          <div className="py-4">
+      <dialog id="loginModal" className="modal modal-middle">
+        <div className="modal-box max-w-md">
+          <h3 className="font-bold text-lg mb-4">登录查看详情</h3>
+          <div className="py-2">
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">手机号</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">手机号</label>
                 <input
                   type="tel"
                   id="phone"
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                   placeholder="请输入手机号"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">验证码</label>
-                <div className="flex mt-1">
-                  <input
-                    type="text"
-                    id="code"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                    placeholder="请输入验证码"
-                  />
-                  <button
-                    type="button"
-                    className="ml-2 px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none"
-                    onClick={() => window.sendVerificationCode?.()}
-                  >
-                    获取验证码
-                  </button>
-                </div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">验证码</label>
+                <input
+                  type="text"
+                  id="code"
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="请输入验证码"
+                />
               </div>
             </div>
           </div>
-          <div className="modal-action">
+          <div className="modal-action mt-6">
             <button
-              className="btn bg-indigo-600 text-white hover:bg-indigo-700"
+              className="btn bg-blue-600 text-white hover:bg-blue-700"
               onClick={() => window.login?.()}
             >
               登录
@@ -448,9 +451,9 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data }) => {
       </dialog>
 
       {/* Ban Info Modal */}
-      <dialog id="banInfoModal" className="modal">
-        <div className="modal-box">
-          <h3 className="font-bold text-lg">封禁信息</h3>
+      <dialog id="banInfoModal" className="modal modal-middle">
+        <div className="modal-box max-w-md">
+          <h3 className="font-bold text-lg mb-2">封禁信息</h3>
           <div id="banInfoContent" className="py-4">
             <p>正在获取封禁信息...</p>
           </div>
