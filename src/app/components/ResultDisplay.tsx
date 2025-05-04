@@ -76,13 +76,6 @@ type ResultDisplayProps = {
   isLoggedIn?: boolean;
 };
 
-// Add global window interface extensions
-declare global {
-  interface Window {
-    eloScoreModal?: HTMLDialogElement;
-  }
-}
-
 const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false }) => {
   const router = useRouter();
   
@@ -134,13 +127,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false 
               <p className="text-sm font-medium text-gray-700">用户名</p>
               <p className="font-medium text-gray-900">{userInfo.data.player?.personaname || '未知'}</p>
             </div>
-            <div className="p-4 bg-gray-50 rounded-md cursor-pointer hover:bg-gray-100" onClick={() => {
-              if (data.playerStats?.data?.pvpScore) {
-                window.eloScoreModal?.showModal();
-              } else if (!isLoggedIn) {
-                navigateToLogin();
-              }
-            }}>
+            <div className="p-4 bg-gray-50 rounded-md">
               <p className="text-sm font-medium text-gray-700">ELO 分数</p>
               <p className="font-medium text-blue-600">{data.playerStats?.data?.pvpScore || '未知'}</p>
             </div>
@@ -255,47 +242,6 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false 
           </div>
         </div>
       )}
-
-      {/* ELO Score Modal */}
-      <dialog id="eloScoreModal" className="modal">
-        <div className="modal-box max-w-xl">
-          <h3 className="font-bold text-lg text-center border-b pb-2 mb-3">ELO 分数详情</h3>
-          <div className="py-4">
-            <p className="mb-2 text-center">当前分数: <span className="font-bold text-blue-600">{data.playerStats?.data?.pvpScore || '未知'}</span></p>
-            <div className="overflow-x-auto mt-4">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">日期</th>
-                    <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">地图</th>
-                    <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">比分</th>
-                    <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">得分变化</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {data.playerStats?.data?.matchList?.slice(0, 5).map((match: any, index: number) => (
-                    <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{match.startTime?.split(' ')[0] || '未知'}</td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{match.mapName || '未知'}</td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{match.score1}:{match.score2}</td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm font-medium">
-                        <span className={match.pvpScoreChange > 0 ? 'text-green-600' : match.pvpScoreChange < 0 ? 'text-red-600' : 'text-gray-600'}>
-                          {match.pvpScoreChange > 0 ? `+${match.pvpScoreChange}` : match.pvpScoreChange}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-          <div className="modal-action center border-t pt-2">
-            <form method="dialog">
-              <button className="btn btn-blue px-8">关闭</button>
-            </form>
-          </div>
-        </div>
-      </dialog>
 
       {/* 如果没有数据 */}
       {!userInfo && !detailedStats && (
