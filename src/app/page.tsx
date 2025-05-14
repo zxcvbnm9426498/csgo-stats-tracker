@@ -289,9 +289,6 @@ export default function Home() {
 
         <footer className="mt-16 text-center text-sm text-gray-500">
           <p>CSGO 玩家战绩查询系统 © 2023</p>
-          <p className="mt-2">
-            <Link href="/admin" className="text-blue-500 hover:text-blue-700">管理员入口</Link>
-          </p>
         </footer>
       </div>
     </main>
