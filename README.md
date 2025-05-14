@@ -66,16 +66,27 @@ npm run dev
 1. 在Vercel控制台创建一个Edge Config存储：
    - 进入项目设置 > Storage > Edge Config
    - 点击"Create Edge Config"按钮创建一个新的配置
+   - **重要**：确保在创建后启用了该 Edge Config（"Enabled"状态）
 
-2. 添加环境变量：
+2. 将Edge Config连接到项目：
+   - 在创建Edge Config后，点击"Link"按钮将其关联到当前项目
+   - 或通过项目设置 > Storage 页面手动连接现有的Edge Config
+
+3. 添加环境变量：
    - 进入项目设置 > Environment Variables
-   - 添加`EDGE_CONFIG`环境变量，值为上一步创建的Edge Config ID
+   - 添加`EDGE_CONFIG`环境变量，值为上一步创建的Edge Config ID（应在连接Edge Config后自动添加）
    - 添加`PASSWORD_SALT`环境变量，设置一个自定义的密码加盐字符串（可选但推荐）
    - 添加`INIT_API_KEY`环境变量，用于保护初始化API的访问（可选）
 
-3. 初始化数据：
+4. 重新部署项目以应用更改
+
+5. 初始化数据：
    - 部署完成后，访问`/api/init-db`端点并提供`x-api-key`头部进行初始化
    - 默认会创建用户名为`admin`，密码为`admin123`的管理员账户
+   - 您可以使用cURL或Postman发送请求：
+     ```bash
+     curl -X GET "https://your-app-url.vercel.app/api/init-db" -H "x-api-key: your-init-api-key"
+     ```
 
 ## 数据来源
 
