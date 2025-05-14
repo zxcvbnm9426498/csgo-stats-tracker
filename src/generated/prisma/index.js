@@ -87,9 +87,6 @@ Prisma.NullTypes = {
  * Enums
  */
 exports.Prisma.TransactionIsolationLevel = makeStrictEnum({
-  ReadUncommitted: 'ReadUncommitted',
-  ReadCommitted: 'ReadCommitted',
-  RepeatableRead: 'RepeatableRead',
   Serializable: 'Serializable'
 });
 
@@ -123,11 +120,6 @@ exports.Prisma.LogScalarFieldEnum = {
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
-};
-
-exports.Prisma.QueryMode = {
-  default: 'default',
-  insensitive: 'insensitive'
 };
 
 exports.Prisma.NullsOrder = {
@@ -179,19 +171,19 @@ const config = {
   "datasourceNames": [
     "db"
   ],
-  "activeProvider": "postgresql",
+  "activeProvider": "sqlite",
   "postinstall": false,
   "inlineDatasources": {
     "db": {
       "url": {
-        "fromEnvVar": "DATABASE_URL",
-        "value": null
+        "fromEnvVar": null,
+        "value": "file:./dev.db"
       }
     }
   },
-  "inlineSchema": "// This is your Prisma schema file,\n// learn more about it in the docs: https://pris.ly/d/prisma-schema\n\n// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?\n// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init\n\ngenerator client {\n  provider = \"prisma-client-js\"\n  output   = \"../src/generated/prisma\"\n}\n\ndatasource db {\n  provider = \"postgresql\"\n  url      = env(\"DATABASE_URL\")\n}\n\n// Admin model for admin accounts\nmodel Admin {\n  id        String   @id @default(uuid())\n  username  String   @unique\n  password  String\n  role      String // \"admin\" or \"moderator\"\n  createdAt DateTime @default(now())\n}\n\n// Account model for user accounts\nmodel Account {\n  id        String    @id @default(uuid())\n  username  String    @unique\n  phone     String    @unique\n  steamId   String?\n  status    String // \"active\", \"suspended\", or \"banned\"\n  createdAt DateTime  @default(now())\n  lastLogin DateTime?\n}\n\n// Log model for system logs\nmodel Log {\n  id        String   @id @default(uuid())\n  userId    String?\n  action    String\n  details   String\n  ip        String?\n  timestamp DateTime @default(now())\n}\n",
-  "inlineSchemaHash": "26dd43583cd2821712b90bad6b6738c504915c3d19ed05c0d74b8a79f8d49b92",
-  "copyEngine": false
+  "inlineSchema": "// This is your Prisma schema file,\n// learn more about it in the docs: https://pris.ly/d/prisma-schema\n\n// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?\n// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init\n\ngenerator client {\n  provider = \"prisma-client-js\"\n  output   = \"../src/generated/prisma\"\n}\n\ndatasource db {\n  provider = \"sqlite\"\n  url      = \"file:./dev.db\"\n}\n\n// Admin model for admin accounts\nmodel Admin {\n  id        String   @id @default(uuid())\n  username  String   @unique\n  password  String\n  role      String // \"admin\" or \"moderator\"\n  createdAt DateTime @default(now())\n}\n\n// Account model for user accounts\nmodel Account {\n  id        String    @id @default(uuid())\n  username  String    @unique\n  phone     String    @unique\n  steamId   String?\n  status    String // \"active\", \"suspended\", or \"banned\"\n  createdAt DateTime  @default(now())\n  lastLogin DateTime?\n}\n\n// Log model for system logs\nmodel Log {\n  id        String   @id @default(uuid())\n  userId    String?\n  action    String\n  details   String\n  ip        String?\n  timestamp DateTime @default(now())\n}\n",
+  "inlineSchemaHash": "0b1a0141accc86fd54b60f377454ec5a1e7771cb17e32e7f373116c16272f22f",
+  "copyEngine": true
 }
 
 const fs = require('fs')
@@ -228,3 +220,9 @@ const PrismaClient = getPrismaClient(config)
 exports.PrismaClient = PrismaClient
 Object.assign(exports, Prisma)
 
+// file annotations for bundling tools to include these files
+path.join(__dirname, "libquery_engine-darwin-arm64.dylib.node");
+path.join(process.cwd(), "src/generated/prisma/libquery_engine-darwin-arm64.dylib.node")
+// file annotations for bundling tools to include these files
+path.join(__dirname, "schema.prisma");
+path.join(process.cwd(), "src/generated/prisma/schema.prisma")
