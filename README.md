@@ -16,6 +16,7 @@
 - 展示详细游戏统计数据，包括K/D比、胜率、爆头率等
 - 提供直接链接到4Cola完整战绩页面
 - 响应式设计，适配各种设备
+- 管理员后台管理系统
 
 ## 技术栈
 
@@ -26,6 +27,7 @@
 - [React Hook Form](https://react-hook-form.com/) - 表单处理
 - [React Hot Toast](https://react-hot-toast.com/) - 通知提示
 - [Axios](https://axios-http.com/) - HTTP请求库
+- [Vercel Edge Config](https://vercel.com/docs/storage/edge-config) - 轻量级键值数据存储
 
 ## 开始使用
 
@@ -56,6 +58,24 @@ npm run dev
 1. 点击上方按钮
 2. 登录Vercel账户
 3. 按照指示完成部署流程
+
+### 配置Vercel Edge Config
+
+项目使用Vercel Edge Config作为数据存储解决方案，部署时需要进行以下配置：
+
+1. 在Vercel控制台创建一个Edge Config存储：
+   - 进入项目设置 > Storage > Edge Config
+   - 点击"Create Edge Config"按钮创建一个新的配置
+
+2. 添加环境变量：
+   - 进入项目设置 > Environment Variables
+   - 添加`EDGE_CONFIG`环境变量，值为上一步创建的Edge Config ID
+   - 添加`PASSWORD_SALT`环境变量，设置一个自定义的密码加盐字符串（可选但推荐）
+   - 添加`INIT_API_KEY`环境变量，用于保护初始化API的访问（可选）
+
+3. 初始化数据：
+   - 部署完成后，访问`/api/init-db`端点并提供`x-api-key`头部进行初始化
+   - 默认会创建用户名为`admin`，密码为`admin123`的管理员账户
 
 ## 数据来源
 

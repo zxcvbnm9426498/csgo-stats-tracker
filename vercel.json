@@ -1,1 +1,17 @@
-{"version": 2,"buildCommand": "npm run build","installCommand": "npm install","framework": "nextjs","devCommand": "npm run dev","git": {"deploymentEnabled": {"main": true}}}
+{
+  "version": 2,
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "devCommand": "npm run dev",
+  "git": {
+    "deploymentEnabled": {
+      "main": true
+    }
+  },
+  "edges": {
+    "config": {
+      "enabled": true
+    }
+  }
+}
