@@ -31,9 +31,26 @@ export interface Account {
   lastLogin?: string;
 }
 
+// 验证Prisma客户端是否可用的函数
+async function validatePrismaAvailability() {
+  try {
+    // 尝试执行简单查询以验证连接
+    await prisma.$queryRaw`SELECT 1`;
+    return true;
+  } catch (error) {
+    console.warn('Prisma客户端不可用或数据库连接失败:', error);
+    return false;
+  }
+}
+
 // Read operations
 export async function getAdmins(): Promise<Admin[]> {
   try {
+    if (!await validatePrismaAvailability()) {
+      console.warn('数据库不可用，返回空管理员列表');
+      return [];
+    }
+    
     const admins = await prisma.admin.findMany();
     return admins.map((admin) => ({
       id: admin.id,
@@ -50,6 +67,11 @@ export async function getAdmins(): Promise<Admin[]> {
 
 export async function getLogs(): Promise<Log[]> {
   try {
+    if (!await validatePrismaAvailability()) {
+      console.warn('数据库不可用，返回空日志列表');
+      return [];
+    }
+    
     const logs = await prisma.log.findMany({
       orderBy: { timestamp: 'desc' }
     });
@@ -69,6 +91,11 @@ export async function getLogs(): Promise<Log[]> {
 
 export async function getAccounts(): Promise<Account[]> {
   try {
+    if (!await validatePrismaAvailability()) {
+      console.warn('数据库不可用，返回空账户列表');
+      return [];
+    }
+    
     const accounts = await prisma.account.findMany();
     return accounts.map((account) => ({
       id: account.id,
@@ -88,6 +115,18 @@ export async function getAccounts(): Promise<Account[]> {
 // Add log
 export async function addLog(log: Omit<Log, 'id' | 'timestamp'>): Promise<Log> {
   try {
+    if (!await validatePrismaAvailability()) {
+      console.warn('数据库不可用，返回模拟日志');
+      return {
+        id: `mock_${Date.now()}`,
+        userId: log.userId,
+        action: log.action,
+        details: log.details,
+        ip: log.ip,
+        timestamp: new Date().toISOString()
+      };
+    }
+    
     const newLog = await prisma.log.create({
       data: {
         userId: log.userId,
@@ -107,7 +146,15 @@ export async function addLog(log: Omit<Log, 'id' | 'timestamp'>): Promise<Log> {
     };
   } catch (error) {
     console.error('Error adding log:', error);
-    throw error;
+    // 返回模拟数据以避免应用崩溃
+    return {
+      id: `error_${Date.now()}`,
+      userId: log.userId,
+      action: log.action,
+      details: log.details,
+      ip: log.ip,
+      timestamp: new Date().toISOString()
+    };
   }
 }
 

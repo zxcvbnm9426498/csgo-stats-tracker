@@ -1,3 +1,10 @@
+<!--
+ * @Author: 择安网络
+ * @Code function: 
+ * @Date: 2025-05-14 18:08:02
+ * @FilePath: /csgo-stats-tracker/README.md
+ * @LastEditTime: 2025-05-14 20:41:09
+-->
 # CSGO 玩家战绩查询系统
 
 这是一个使用Next.js开发的CSGO玩家战绩查询系统。用户可以通过输入玩家ID或Steam ID查询详细的游戏数据和战绩统计。
