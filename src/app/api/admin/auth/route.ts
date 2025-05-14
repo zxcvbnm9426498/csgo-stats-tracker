@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
             ${admin ? 'LOGIN_SUCCESS' : 'LOGIN_FAILED'},
             ${admin ? `管理员 ${username} 登录成功` : `尝试使用用户名 ${username} 登录失败`},
             ${request.headers.get('x-forwarded-for') || 'unknown'},
-            CURRENT_TIMESTAMP
+            datetime('now')
           )
         `;
       } catch (logError) {

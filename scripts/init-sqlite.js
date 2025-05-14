@@ -1,3 +1,10 @@
+/*
+ * @Author: 择安网络
+ * @Code function: 
+ * @Date: 2025-05-14 22:00:26
+ * @FilePath: /csgo-stats-tracker/scripts/init-sqlite.js
+ * @LastEditTime: 2025-05-14 22:09:44
+ */
 const Database = require('better-sqlite3');
 const { randomUUID } = require('crypto');
 const path = require('path');

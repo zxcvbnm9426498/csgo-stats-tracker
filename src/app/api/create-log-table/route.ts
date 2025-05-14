@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
       await prisma.$executeRaw`
         CREATE TABLE IF NOT EXISTS "Log" (
           "id" TEXT NOT NULL,
-          "timestamp" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "timestamp" TEXT NOT NULL DEFAULT (datetime('now')),
           "action" TEXT NOT NULL,
           "details" TEXT,
           "ip" TEXT,
