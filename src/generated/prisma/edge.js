@@ -169,7 +169,7 @@ const config = {
     "isCustomOutput": true
   },
   "relativeEnvPaths": {
-    "rootEnvPath": "../../../.env",
+    "rootEnvPath": null,
     "schemaEnvPath": "../../../.env"
   },
   "relativePath": "../../../prisma",
@@ -179,17 +179,18 @@ const config = {
     "db"
   ],
   "activeProvider": "postgresql",
+  "postinstall": false,
   "inlineDatasources": {
     "db": {
       "url": {
         "fromEnvVar": "DATABASE_URL",
-        "value": "postgres://neondb_owner:npg_b7tqFfT3UKiJ@ep-summer-silence-a4hhrpex-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require"
+        "value": null
       }
     }
   },
   "inlineSchema": "// This is your Prisma schema file,\n// learn more about it in the docs: https://pris.ly/d/prisma-schema\n\n// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?\n// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init\n\ngenerator client {\n  provider = \"prisma-client-js\"\n  output   = \"../src/generated/prisma\"\n}\n\ndatasource db {\n  provider = \"postgresql\"\n  url      = env(\"DATABASE_URL\")\n}\n\n// Admin model for admin accounts\nmodel Admin {\n  id        String   @id @default(uuid())\n  username  String   @unique\n  password  String\n  role      String // \"admin\" or \"moderator\"\n  createdAt DateTime @default(now())\n}\n\n// Account model for user accounts\nmodel Account {\n  id        String    @id @default(uuid())\n  username  String    @unique\n  phone     String    @unique\n  steamId   String?\n  status    String // \"active\", \"suspended\", or \"banned\"\n  createdAt DateTime  @default(now())\n  lastLogin DateTime?\n}\n\n// Log model for system logs\nmodel Log {\n  id        String   @id @default(uuid())\n  userId    String?\n  action    String\n  details   String\n  ip        String?\n  timestamp DateTime @default(now())\n}\n",
   "inlineSchemaHash": "26dd43583cd2821712b90bad6b6738c504915c3d19ed05c0d74b8a79f8d49b92",
-  "copyEngine": true
+  "copyEngine": false
 }
 config.dirname = '/'
 
