@@ -1,41 +1,21 @@
 import { PrismaClient } from '@prisma/client';
-import path from 'path';
-import fs from 'fs';
 
 // 声明全局变量类型
 declare global {
   var prisma: PrismaClient | undefined;
 }
 
-// 创建PrismaClient实例的函数，添加错误处理和SQLite支持
+// 创建PrismaClient实例的函数
 function createPrismaClient() {
   try {
     console.log('创建PrismaClient实例...');
     
-    // 确保SQLite数据库文件路径存在
-    const dbPath = path.join(process.cwd(), 'prisma', 'dev.db');
-    console.log('SQLite数据库路径:', dbPath);
-    
-    // 检查文件是否存在，如果不存在则创建空文件
-    try {
-      if (!fs.existsSync(dbPath)) {
-        console.log('SQLite数据库文件不存在，创建空文件');
-        const dirPath = path.dirname(dbPath);
-        if (!fs.existsSync(dirPath)) {
-          fs.mkdirSync(dirPath, { recursive: true });
-        }
-        fs.writeFileSync(dbPath, '');
-      }
-    } catch (fsError) {
-      console.warn('检查或创建数据库文件时出错:', fsError);
-    }
-    
-    // 创建客户端实例，显式指定数据库URL
+    // 创建客户端实例，使用内存数据库
     const client = new PrismaClient({
       log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
       datasources: {
         db: {
-          url: `file:${dbPath}`
+          url: 'file::memory:'
         }
       }
     });
