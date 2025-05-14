@@ -7,7 +7,7 @@
     "postinstall": "prisma generate",
     "prebuild": "prisma generate && node -e \"console.log('Prisma generation completed')\"",
     "build": "PRISMA_CLIENT_ENGINE_TYPE=binary ESLINT_NO_DEV_ERRORS=true NEXT_TELEMETRY_DISABLED=1 next build",
-    "postbuild": "prisma db push && node prisma/seed.js",
+    "postbuild": "prisma db push",
     "db:seed": "node prisma/seed.js",
     "start": "next start",
     "lint": "next lint"
