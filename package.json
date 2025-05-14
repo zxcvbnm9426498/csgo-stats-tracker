@@ -7,7 +7,8 @@
     "postinstall": "prisma generate",
     "prebuild": "prisma generate && node -e \"console.log('Prisma generation completed')\"",
     "build": "PRISMA_CLIENT_ENGINE_TYPE=binary ESLINT_NO_DEV_ERRORS=true NEXT_TELEMETRY_DISABLED=1 next build",
-    "postbuild": "prisma db push",
+    "postbuild": "prisma db push && npx ts-node prisma/seed.ts",
+    "db:seed": "ts-node prisma/seed.ts",
     "start": "next start",
     "lint": "next lint"
   },
@@ -34,6 +35,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.3.1",
     "tailwindcss": "^4",
+    "ts-node": "^10.9.2",
     "typescript": "^5"
   }
 }
