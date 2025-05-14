@@ -1,4 +1,6 @@
 import { PrismaClient } from '@prisma/client';
+import path from 'path';
+import fs from 'fs';
 
 // 声明全局变量类型
 declare global {
@@ -10,9 +12,32 @@ function createPrismaClient() {
   try {
     console.log('创建PrismaClient实例...');
     
+    // 确保数据库文件存在
+    const dbPath = path.join(process.cwd(), 'prisma', 'dev.db');
+    const dbExists = fs.existsSync(dbPath);
+    
+    if (!dbExists) {
+      console.warn('SQLite数据库文件不存在:', dbPath);
+      // 创建一个空的数据库文件
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('尝试创建SQLite数据库文件...');
+        try {
+          fs.writeFileSync(dbPath, '');
+          console.log('已创建空数据库文件');
+        } catch (fsError) {
+          console.error('创建数据库文件失败:', fsError);
+        }
+      }
+    }
+    
     // 创建不带$queryRaw的客户端实例
     const client = new PrismaClient({
       log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+      datasources: {
+        db: {
+          url: `file:${dbPath}`
+        }
+      }
     });
     
     console.log('PrismaClient实例创建成功');
@@ -42,7 +67,9 @@ function createPrismaClient() {
           create: (data: any) => Promise.resolve({...data.data, id: 'mock-id', timestamp: new Date()})
         },
         $disconnect: () => Promise.resolve(),
-        $connect: () => Promise.resolve()
+        $connect: () => Promise.resolve(),
+        $queryRaw: () => Promise.resolve([]),
+        $executeRaw: () => Promise.resolve(null)
       } as unknown as PrismaClient;
     }
     
