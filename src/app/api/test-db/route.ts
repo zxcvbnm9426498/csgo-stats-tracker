@@ -3,6 +3,10 @@ import prisma from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
   try {
+    // 设置响应头确保正确的字符编码
+    const headers = new Headers();
+    headers.set('Content-Type', 'application/json; charset=utf-8');
+    
     // 获取当前环境信息
     const environment = {
       NODE_ENV: process.env.NODE_ENV,
@@ -15,10 +19,7 @@ export async function GET(request: NextRequest) {
 
     // 尝试与数据库建立连接
     try {
-      // 测试数据库连接
-      await prisma.$queryRaw`SELECT 1 as check_connection`;
-      
-      // 检查表是否存在
+      // 检查表是否存在，不使用$queryRaw
       let adminTableExists = true;
       let accountTableExists = true;
       let logTableExists = true;
@@ -50,6 +51,7 @@ export async function GET(request: NextRequest) {
         const adminCount = await prisma.admin.count();
         
         // 如果没有管理员账号，尝试创建一个
+        let newAdminCreated = false;
         if (adminCount === 0) {
           await prisma.admin.create({
             data: {
@@ -58,6 +60,7 @@ export async function GET(request: NextRequest) {
               role: 'admin'
             }
           });
+          newAdminCreated = true;
         }
         
         // 测试其他表
@@ -73,39 +76,56 @@ export async function GET(request: NextRequest) {
           }
         });
         
-        return NextResponse.json({ 
-          success: true, 
-          message: '数据库连接并操作成功',
-          environment,
-          tableStatus: {
-            admin: adminTableExists ? '存在' : '不存在',
-            account: accountTableExists ? '存在' : '不存在',
-            log: logTableExists ? '存在' : '不存在'
-          },
-          counts: {
-            admins: adminCount,
-            accounts: accountCount,
-            logs: logCount + 1 // 包括我们刚刚创建的测试日志
-          },
-          testLogId: testLog.id
-        });
+        return new NextResponse(
+          JSON.stringify({ 
+            success: true, 
+            message: '数据库连接并操作成功',
+            environment,
+            tableStatus: {
+              admin: adminTableExists ? '存在' : '不存在',
+              account: accountTableExists ? '存在' : '不存在',
+              log: logTableExists ? '存在' : '不存在'
+            },
+            counts: {
+              admins: adminCount + (newAdminCreated ? 1 : 0),
+              accounts: accountCount,
+              logs: logCount + 1 // 包括我们刚刚创建的测试日志
+            },
+            testLogId: testLog.id
+          }),
+          { headers }
+        );
       } else {
         // 有表不存在，返回状态信息
-        return NextResponse.json({
-          success: false,
-          message: '数据库连接成功但表结构不完整',
-          environment,
-          tableStatus: {
-            admin: adminTableExists ? '存在' : '不存在',
-            account: accountTableExists ? '存在' : '不存在',
-            log: logTableExists ? '存在' : '不存在'
-          },
-          recommendation: '请执行 `prisma db push` 或等待 postbuild 脚本自动创建表结构'
-        }, { status: 500 });
+        return new NextResponse(
+          JSON.stringify({
+            success: false,
+            message: '数据库连接成功但表结构不完整',
+            environment,
+            tableStatus: {
+              admin: adminTableExists ? '存在' : '不存在',
+              account: accountTableExists ? '存在' : '不存在',
+              log: logTableExists ? '存在' : '不存在'
+            },
+            recommendation: '请执行 `prisma db push` 或等待 postbuild 脚本自动创建表结构'
+          }),
+          { status: 500, headers }
+        );
       }
     } catch (dbError) {
       console.error('数据库操作失败:', dbError);
-      throw new Error(`数据库操作失败: ${dbError instanceof Error ? dbError.message : String(dbError)}`);
+      return new NextResponse(
+        JSON.stringify({
+          success: false, 
+          message: '数据库操作失败',
+          environment,
+          error: {
+            name: dbError instanceof Error ? dbError.name : 'UnknownError',
+            message: dbError instanceof Error ? dbError.message : String(dbError)
+          }
+        }),
+        { status: 500, headers }
+      );
     }
   } catch (error) {
     console.error('数据库连接测试失败:', error);
@@ -119,18 +139,24 @@ export async function GET(request: NextRequest) {
         }
       : String(error);
     
-    return NextResponse.json({ 
-      success: false, 
-      message: '数据库连接失败',
-      environment: {
-        NODE_ENV: process.env.NODE_ENV,
-        VERCEL_ENV: process.env.VERCEL_ENV || '未设置',
-        DATABASE_URL_SET: process.env.DATABASE_URL ? '已设置' : '未设置',
-        POSTGRES_PRISMA_URL_SET: process.env.POSTGRES_PRISMA_URL ? '已设置' : '未设置',
-        DATABASE_URL_UNPOOLED_SET: process.env.DATABASE_URL_UNPOOLED ? '已设置' : '未设置',
-        PGHOST_SET: process.env.PGHOST ? '已设置' : '未设置'
-      },
-      error: errorDetails
-    }, { status: 500 });
+    const headers = new Headers();
+    headers.set('Content-Type', 'application/json; charset=utf-8');
+    
+    return new NextResponse(
+      JSON.stringify({ 
+        success: false, 
+        message: '数据库连接失败',
+        environment: {
+          NODE_ENV: process.env.NODE_ENV,
+          VERCEL_ENV: process.env.VERCEL_ENV || '未设置',
+          DATABASE_URL_SET: process.env.DATABASE_URL ? '已设置' : '未设置',
+          POSTGRES_PRISMA_URL_SET: process.env.POSTGRES_PRISMA_URL ? '已设置' : '未设置',
+          DATABASE_URL_UNPOOLED_SET: process.env.DATABASE_URL_UNPOOLED ? '已设置' : '未设置',
+          PGHOST_SET: process.env.PGHOST ? '已设置' : '未设置'
+        },
+        error: errorDetails
+      }),
+      { status: 500, headers }
+    );
   }
 } 
