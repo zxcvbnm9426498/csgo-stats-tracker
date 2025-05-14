@@ -244,5 +244,3 @@ export async function addAdmin(admin: Omit<Admin, 'id' | 'createdAt'>): Promise<
     throw error;
   }
 } 
-} 
-} 
