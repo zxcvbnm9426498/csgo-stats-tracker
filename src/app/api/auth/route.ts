@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 // Import the conversion function (adjust path if necessary)
 import { getSteamIdFromAlternativeApi } from '../csgo/utils'; 
+import { addLog } from '../admin/db';
 
 // Helper function to check if an ID is likely a 64-bit Steam ID
 function isSteamID64(id: string): boolean {
@@ -61,6 +62,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // 记录登录尝试
+      addLog({
+        action: 'USER_LOGIN_ATTEMPT',
+        details: `用户尝试登录，手机号: ${mobilePhone}`,
+        ip: request.headers.get('x-forwarded-for') || 'unknown'
+      });
+
       const loginUrl = "https://passport.pwesports.cn/account/login";
       const payload = {
         "appId": 2,
@@ -71,6 +79,22 @@ export async function POST(request: NextRequest) {
       const response = await axios.post(loginUrl, payload, { 
         validateStatus: () => true // Accept any status code
       });
+
+      if (response.data && response.data.code === 0) {
+        // 登录成功
+        addLog({
+          action: 'USER_LOGIN_SUCCESS',
+          details: `用户登录成功，手机号: ${mobilePhone}`,
+          ip: request.headers.get('x-forwarded-for') || 'unknown'
+        });
+      } else {
+        // 登录失败
+        addLog({
+          action: 'USER_LOGIN_FAILED',
+          details: `用户登录失败，手机号: ${mobilePhone}, 原因: ${response.data?.description || '未知'}`,
+          ip: request.headers.get('x-forwarded-for') || 'unknown'
+        });
+      }
 
       return NextResponse.json(response.data);
     }
@@ -86,6 +110,13 @@ export async function POST(request: NextRequest) {
         console.warn('[API] Warning: Token is required for checkBan');
         return NextResponse.json({ error: '需要登录' }, { status: 401 });
       }
+
+      // 记录请求
+      addLog({
+        action: 'CHECK_BAN_STATUS',
+        details: `检查玩家封禁状态，Steam ID: ${steamId64}`,
+        ip: request.headers.get('x-forwarded-for') || 'unknown'
+      });
 
       const url = "https://api.wmpvp.com/api/csgo/home/user/forbid";
       const timestamp = Math.floor(Date.now() / 1000);
@@ -131,6 +162,13 @@ export async function POST(request: NextRequest) {
         console.warn('[API] Warning: Token is required for getEloScore');
         return NextResponse.json({ error: '需要登录' }, { status: 401 });
       }
+
+      // 记录请求
+      addLog({
+        action: 'GET_ELO_SCORE',
+        details: `获取玩家ELO分数，Steam ID: ${steamId64}`,
+        ip: request.headers.get('x-forwarded-for') || 'unknown'
+      });
 
       const url = "https://api.wmpvp.com/api/csgo/home/match/list";
       const timestamp = Math.floor(Date.now() / 1000);
@@ -197,6 +235,14 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(response.data);
       } catch (error) {
         console.error('[API] 获取ELO分数时发生网络或请求错误:', error);
+        
+        // 记录错误
+        addLog({
+          action: 'GET_ELO_SCORE_ERROR',
+          details: `获取ELO分数失败，Steam ID: ${steamId64}`,
+          ip: request.headers.get('x-forwarded-for') || 'unknown'
+        });
+        
         return NextResponse.json(
           { error: '获取ELO分数失败' },
           { status: 500 }
@@ -211,6 +257,14 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     console.error('[API] 处理请求时发生内部错误:', error);
+    
+    // 记录错误
+    addLog({
+      action: 'API_ERROR',
+      details: `处理请求时发生内部错误: ${(error as Error).message || '未知错误'}`,
+      ip: request.headers.get('x-forwarded-for') || 'unknown'
+    });
+    
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }

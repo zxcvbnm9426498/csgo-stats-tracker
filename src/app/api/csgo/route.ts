@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchById, searchBySteamId } from './utils';
+import { addLog } from '../admin/db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,11 +15,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 记录搜索日志
+    addLog({
+      action: 'SEARCH_CSGO',
+      details: `${searchType === 'steamId' ? 'Steam ID' : '用户ID'} 搜索: ${searchId}`,
+      ip: request.headers.get('x-forwarded-for') || 'unknown'
+    });
+
     const result = searchType === 'steamId' 
       ? await searchBySteamId(searchId) 
       : await searchById(searchId);
 
     if (!result) {
+      addLog({
+        action: 'SEARCH_FAILED',
+        details: `搜索失败: ${searchId}`,
+        ip: request.headers.get('x-forwarded-for') || 'unknown'
+      });
+
       return NextResponse.json(
         { error: 'Failed to find player data' },
         { status: 404 }
@@ -39,6 +53,13 @@ export async function POST(request: NextRequest) {
         // 即使获取比赛数据失败，也继续返回响应
       }
     }
+
+    // 记录搜索成功日志
+    addLog({
+      action: 'SEARCH_SUCCESS',
+      details: `成功查询玩家: ${result.playerInfo?.name || searchId}`,
+      ip: request.headers.get('x-forwarded-for') || 'unknown'
+    });
 
     return NextResponse.json(result);
   } catch (error) {
