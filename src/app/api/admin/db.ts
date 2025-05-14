@@ -53,7 +53,7 @@ initDefaultAdmin().catch(console.error);
 export async function getAdmins(): Promise<Admin[]> {
   try {
     const admins = await prisma.admin.findMany();
-    return admins.map(admin => ({
+    return admins.map((admin) => ({
       id: admin.id,
       username: admin.username,
       password: admin.password,
@@ -71,7 +71,7 @@ export async function getLogs(): Promise<Log[]> {
     const logs = await prisma.log.findMany({
       orderBy: { timestamp: 'desc' }
     });
-    return logs.map(log => ({
+    return logs.map((log) => ({
       id: log.id,
       userId: log.userId || undefined,
       action: log.action,
@@ -88,7 +88,7 @@ export async function getLogs(): Promise<Log[]> {
 export async function getAccounts(): Promise<Account[]> {
   try {
     const accounts = await prisma.account.findMany();
-    return accounts.map(account => ({
+    return accounts.map((account) => ({
       id: account.id,
       username: account.username,
       phone: account.phone,
