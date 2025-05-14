@@ -343,6 +343,30 @@ export async function deleteSession(sessionId: string): Promise<boolean> {
   }
 }
 
+// 测试Edge Config连接
+export async function testConnection(): Promise<{
+  connected: boolean;
+  edgeConfigId?: string;
+  message: string;
+}> {
+  try {
+    // 尝试简单的get操作
+    await edgeConfig.get('connection_test');
+    
+    return {
+      connected: true,
+      edgeConfigId: process.env.EDGE_CONFIG || '未知',
+      message: 'Edge Config连接成功'
+    };
+  } catch (error) {
+    console.error('Edge Config连接测试失败:', error);
+    return {
+      connected: false,
+      message: error instanceof Error ? error.message : String(error)
+    };
+  }
+}
+
 export default {
   initializeData,
   getAdmins,
@@ -357,5 +381,6 @@ export default {
   createSession,
   getSessions,
   verifySession,
-  deleteSession
+  deleteSession,
+  testConnection
 }; 
