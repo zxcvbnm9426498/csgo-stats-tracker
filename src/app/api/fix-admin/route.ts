@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
             "username" TEXT NOT NULL UNIQUE,
             "password" TEXT NOT NULL,
             "role" TEXT NOT NULL,
-            "createdAt" TEXT NOT NULL DEFAULT (datetime('now')),
+            "createdAt" TEXT NOT NULL DEFAULT NOW(),
             
             CONSTRAINT "Admin_pkey" PRIMARY KEY ("id")
           )
@@ -130,7 +130,7 @@ export async function GET(request: NextRequest) {
               'admin',
               'admin123',
               'admin',
-              datetime('now')
+              NOW()
             )
           `;
           
@@ -264,24 +264,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-// 用于调试数据库连接问题的endpoint
-export async function debug() {
-  const results = {
-    dbConnection: false,
-    dbType: process.env.NODE_ENV === 'production' ? 'PostgreSQL' : 'SQLite',
-    prismaVersion: '5.x',
-    databaseUrl: process.env.DATABASE_URL ? '已设置(长度:'+process.env.DATABASE_URL.length+')' : '未设置',
-    error: null as string | null
-  };
-  
-  try {
-    await prisma.$queryRaw`SELECT 1 as connected`;
-    results.dbConnection = true;
-  } catch (error) {
-    results.error = error instanceof Error ? error.message : String(error);
-  }
-  
-  return results;
 } 
