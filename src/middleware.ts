@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { verifySession } from '@/lib/edge-config';
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   // 获取路径
   const path = request.nextUrl.pathname;
   
@@ -10,10 +11,17 @@ export function middleware(request: NextRequest) {
   
   // 如果是管理页面路径，检查会话
   if (isAdminPath) {
-    const session = request.cookies.get('admin_session');
+    const sessionCookie = request.cookies.get('admin_session');
     
     // 如果没有会话，重定向到登录
-    if (!session) {
+    if (!sessionCookie || !sessionCookie.value) {
+      return NextResponse.redirect(new URL('/admin', request.url));
+    }
+    
+    // 验证会话有效性
+    const { valid } = await verifySession(sessionCookie.value);
+    if (!valid) {
+      // 会话无效，重定向到登录页
       return NextResponse.redirect(new URL('/admin', request.url));
     }
   }
