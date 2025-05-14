@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAdmin, addLog } from '../db';
+import { verifyAdmin, addLog, Admin } from '../db';
 import { cookies } from 'next/headers';
+import prisma from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,14 +16,62 @@ export async function POST(request: NextRequest) {
         );
       }
       
-      const admin = await verifyAdmin(username, password);
+      // 尝试使用两种方式验证管理员
+      let admin: Admin | null = null;
+      
+      // 方式1: 通过 verifyAdmin 函数验证
+      try {
+        admin = await verifyAdmin(username, password);
+      } catch (error) {
+        console.error('verifyAdmin 方法错误:', error);
+        // 如果 verifyAdmin 失败，继续尝试方式2
+      }
+      
+      // 方式2: 直接使用 SQL 查询验证
       if (!admin) {
-        await addLog({
-          action: 'LOGIN_FAILED',
-          details: `尝试使用用户名 ${username} 登录失败`,
-          ip: request.headers.get('x-forwarded-for') || 'unknown'
-        });
-        
+        try {
+          // @ts-ignore - 直接SQL查询
+          const results = await prisma.$queryRaw`
+            SELECT id, username, role, "createdAt" 
+            FROM "Admin" 
+            WHERE username = ${username} AND password = ${password}
+            LIMIT 1
+          `;
+          
+          if (results && results.length > 0) {
+            admin = {
+              id: results[0].id,
+              username: results[0].username,
+              role: results[0].role,
+              password: '', // 不返回密码，但需要满足类型
+              createdAt: results[0].createdAt.toISOString()
+            };
+          }
+        } catch (sqlError) {
+          console.error('SQL 验证错误:', sqlError);
+        }
+      }
+      
+      // 记录登录尝试
+      try {
+        // 直接SQL插入日志记录
+        // @ts-ignore
+        await prisma.$executeRaw`
+          INSERT INTO "Log" (id, action, details, ip, timestamp)
+          VALUES (
+            ${crypto.randomUUID()},
+            ${admin ? 'LOGIN_SUCCESS' : 'LOGIN_FAILED'},
+            ${admin ? `管理员 ${username} 登录成功` : `尝试使用用户名 ${username} 登录失败`},
+            ${request.headers.get('x-forwarded-for') || 'unknown'},
+            CURRENT_TIMESTAMP
+          )
+        `;
+      } catch (logError) {
+        console.error('创建日志错误:', logError);
+        // 日志记录失败不影响主要流程
+      }
+      
+      if (!admin) {
         return NextResponse.json(
           { success: false, message: '用户名或密码错误' },
           { status: 401 }
@@ -40,13 +89,6 @@ export async function POST(request: NextRequest) {
         path: '/',
         sameSite: 'strict',
         secure: process.env.NODE_ENV === 'production'
-      });
-      
-      // 记录登录日志
-      await addLog({
-        action: 'LOGIN_SUCCESS',
-        details: `管理员 ${username} 登录成功`,
-        ip: request.headers.get('x-forwarded-for') || 'unknown'
       });
       
       return NextResponse.json({
@@ -78,7 +120,11 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('管理员认证错误:', error);
     return NextResponse.json(
-      { success: false, message: '服务器内部错误' },
+      { 
+        success: false, 
+        message: '服务器内部错误',
+        error: error instanceof Error ? error.message : String(error)
+      },
       { status: 500 }
     );
   }
