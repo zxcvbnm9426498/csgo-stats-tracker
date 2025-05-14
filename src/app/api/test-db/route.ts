@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { initDefaultAdmin } from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,7 +20,13 @@ export async function GET(request: NextRequest) {
       
       // 如果没有管理员账号，尝试创建一个
       if (adminCount === 0) {
-        await initDefaultAdmin();
+        await prisma.admin.create({
+          data: {
+            username: 'admin',
+            password: 'admin123',
+            role: 'admin'
+          }
+        });
       }
       
       // 测试其他表
