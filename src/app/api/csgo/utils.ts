@@ -193,7 +193,7 @@ async function getPlayerFullData(playerData: PlayerData): Promise<ParsedPlayerDa
     // 从4cola获取玩家统计数据
     const playerStats = await getPlayerStats(playerData.steamId64Str);
     
-    let detailedStats = null;
+    let detailedStats: DetailedStats | null = null;
     if (playerStats && playerStats.code === 1 && playerStats.data) {
       const recordId = playerStats.data.id;
       if (recordId) {
