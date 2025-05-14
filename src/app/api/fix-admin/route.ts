@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
             "username" TEXT NOT NULL UNIQUE,
             "password" TEXT NOT NULL,
             "role" TEXT NOT NULL,
-            "createdAt" TEXT NOT NULL DEFAULT NOW(),
+            "createdAt" TEXT NOT NULL DEFAULT (datetime('now')),
             
             CONSTRAINT "Admin_pkey" PRIMARY KEY ("id")
           )
@@ -130,7 +130,7 @@ export async function GET(request: NextRequest) {
               'admin',
               'admin123',
               'admin',
-              NOW()
+              datetime('now')
             )
           `;
           

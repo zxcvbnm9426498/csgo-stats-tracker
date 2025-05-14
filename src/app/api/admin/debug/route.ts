@@ -44,11 +44,9 @@ export async function GET(request: NextRequest) {
     
     // 检查表结构
     try {
-      // PostgreSQL特定查询，检查表是否存在
+      // SQLite特定查询，检查表是否存在
       const tableQuery = await prisma.$queryRaw`
-        SELECT table_name 
-        FROM information_schema.tables 
-        WHERE table_schema = 'public'
+        SELECT name as table_name FROM sqlite_master WHERE type='table'
       `;
       
       if (Array.isArray(tableQuery)) {
@@ -84,7 +82,7 @@ export async function GET(request: NextRequest) {
             'admin',
             'admin123',
             'admin',
-            NOW()
+            datetime('now')
           )
         `;
         
