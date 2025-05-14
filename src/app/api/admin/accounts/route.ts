@@ -23,7 +23,8 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || '';
     const status = searchParams.get('status');
     
-    let accounts = getAccounts();
+    // 获取所有账号
+    let accounts = await getAccounts();
     
     // 应用过滤器
     if (search) {
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
     const paginatedAccounts = accounts.slice(startIndex, endIndex);
     
     // 记录查询日志
-    addLog({
+    await addLog({
       action: 'VIEW_ACCOUNTS',
       details: `查看账号列表，页码: ${page}, 每页数量: ${limit}${search ? ', 搜索: ' + search : ''}`,
       ip: request.headers.get('x-forwarded-for') || 'unknown'
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
     }
     
     // 检查用户名或手机号是否已存在
-    const accounts = getAccounts();
+    const accounts = await getAccounts();
     if (accounts.some(acc => acc.username === username)) {
       return NextResponse.json(
         { success: false, message: '用户名已存在' },
@@ -108,7 +109,7 @@ export async function POST(request: NextRequest) {
     }
     
     // 创建新账号
-    const newAccount = addAccount({
+    const newAccount = await addAccount({
       username,
       phone,
       steamId,
@@ -116,7 +117,7 @@ export async function POST(request: NextRequest) {
     });
     
     // 记录操作日志
-    addLog({
+    await addLog({
       action: 'CREATE_ACCOUNT',
       details: `创建账号 ${username} (ID: ${newAccount.id})`,
       ip: request.headers.get('x-forwarded-for') || 'unknown'
@@ -156,7 +157,7 @@ export async function PUT(request: NextRequest) {
     }
     
     // 检查账号是否存在
-    const accounts = getAccounts();
+    const accounts = await getAccounts();
     const existingAccount = accounts.find(acc => acc.id === id);
     if (!existingAccount) {
       return NextResponse.json(
@@ -185,7 +186,7 @@ export async function PUT(request: NextRequest) {
     }
     
     // 更新账号
-    const updatedAccount = updateAccount(id, {
+    const updatedAccount = await updateAccount(id, {
       username,
       phone,
       steamId,
@@ -193,7 +194,7 @@ export async function PUT(request: NextRequest) {
     });
     
     // 记录操作日志
-    addLog({
+    await addLog({
       action: 'UPDATE_ACCOUNT',
       details: `更新账号 ${username || existingAccount.username} (ID: ${id})`,
       ip: request.headers.get('x-forwarded-for') || 'unknown'
@@ -233,7 +234,7 @@ export async function DELETE(request: NextRequest) {
     }
     
     // 检查账号是否存在
-    const accounts = getAccounts();
+    const accounts = await getAccounts();
     const existingAccount = accounts.find(acc => acc.id === id);
     if (!existingAccount) {
       return NextResponse.json(
@@ -243,7 +244,7 @@ export async function DELETE(request: NextRequest) {
     }
     
     // 删除账号
-    const isDeleted = deleteAccount(id);
+    const isDeleted = await deleteAccount(id);
     
     if (!isDeleted) {
       return NextResponse.json(
@@ -253,7 +254,7 @@ export async function DELETE(request: NextRequest) {
     }
     
     // 记录操作日志
-    addLog({
+    await addLog({
       action: 'DELETE_ACCOUNT',
       details: `删除账号 ${existingAccount.username} (ID: ${id})`,
       ip: request.headers.get('x-forwarded-for') || 'unknown'

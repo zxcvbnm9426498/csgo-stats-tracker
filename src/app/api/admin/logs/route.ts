@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     
-    let logs = getLogs();
+    let logs = await getLogs();
     
     // 应用过滤器
     if (action) {
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     const paginatedLogs = logs.slice(startIndex, endIndex);
     
     // 记录查询日志
-    addLog({
+    await addLog({
       action: 'VIEW_LOGS',
       details: `查看日志，页码: ${page}, 每页数量: ${limit}`,
       ip: request.headers.get('x-forwarded-for') || 'unknown'

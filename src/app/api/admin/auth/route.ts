@@ -15,9 +15,9 @@ export async function POST(request: NextRequest) {
         );
       }
       
-      const admin = verifyAdmin(username, password);
+      const admin = await verifyAdmin(username, password);
       if (!admin) {
-        addLog({
+        await addLog({
           action: 'LOGIN_FAILED',
           details: `尝试使用用户名 ${username} 登录失败`,
           ip: request.headers.get('x-forwarded-for') || 'unknown'
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       });
       
       // 记录登录日志
-      addLog({
+      await addLog({
         action: 'LOGIN_SUCCESS',
         details: `管理员 ${username} 登录成功`,
         ip: request.headers.get('x-forwarded-for') || 'unknown'
