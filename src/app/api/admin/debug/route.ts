@@ -3,68 +3,66 @@ import prisma from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
   try {
-    // 检查Prisma实例
-    const prismaInfo = {
-      // 检查Prisma对象上的方法和属性
-      prismaKeys: Object.keys(prisma),
-      adminExists: 'admin' in prisma,
-      // @ts-ignore - 忽略类型检查
-      adminModelExists: prisma.admin ? true : false,
-      // 使用安全访问检查模型方法
-      adminFindFirstMethod: typeof prisma?.admin?.findFirst === 'function',
-      adminFindManyMethod: typeof prisma?.admin?.findMany === 'function',
-      // 尝试安全地获取环境信息
-      environment: {
-        NODE_ENV: process.env.NODE_ENV,
-        DATABASE_URL_SET: process.env.DATABASE_URL ? '已设置' : '未设置'
-      }
+    // 获取秘钥参数，只有提供正确秘钥才能查看调试信息
+    const secretKey = request.nextUrl.searchParams.get('secret');
+    if (secretKey !== 'debug123') {
+      return NextResponse.json(
+        { success: false, message: '未授权访问' },
+        { status: 403 }
+      );
+    }
+    
+    const debugInfo = {
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'unknown',
+      dbConnection: false,
+      admin: null as any,
+      error: null as string | null
     };
-
-    // 尝试直接检查表是否存在
-    let rawAdminData = [];
+    
+    // 测试数据库连接
     try {
-      // @ts-ignore
-      if (prisma.$queryRaw) {
-        // @ts-ignore - 使用 $queryRaw 来原始查询
-        rawAdminData = await prisma.$queryRaw`SELECT * FROM "Admin" LIMIT 1`;
-      }
+      const dbTest = await prisma.$queryRaw`SELECT 1 as connected`;
+      debugInfo.dbConnection = Array.isArray(dbTest) && dbTest.length > 0;
+    } catch (dbError) {
+      debugInfo.error = dbError instanceof Error ? dbError.message : String(dbError);
+      return NextResponse.json(debugInfo);
+    }
+    
+    // 查询Admin表
+    try {
+      const admins = await prisma.$queryRaw`
+        SELECT id, username, role, password, "createdAt"
+        FROM "Admin"
+      `;
+      
+      // 混淆密码数据但保留部分信息用于调试
+      const secureAdmins = Array.isArray(admins) ? admins.map(admin => ({
+        id: admin.id,
+        username: admin.username,
+        role: admin.role,
+        passwordLength: admin.password ? admin.password.length : 0,
+        passwordFirstChar: admin.password ? admin.password.charAt(0) : '',
+        passwordLastChar: admin.password ? admin.password.charAt(admin.password.length - 1) : '',
+        createdAt: admin.createdAt
+      })) : [];
+      
+      debugInfo.admin = {
+        count: secureAdmins.length,
+        records: secureAdmins
+      };
     } catch (queryError) {
-      console.error('原始查询错误:', queryError);
+      debugInfo.error = queryError instanceof Error ? queryError.message : String(queryError);
     }
-
-    // 尝试一个简单的数据库连接测试
-    let dbConnected = false;
-    try {
-      // @ts-ignore - 尝试最简单的查询
-      await prisma.$queryRaw`SELECT 1 as test`;
-      dbConnected = true;
-    } catch (connError) {
-      console.error('数据库连接测试失败:', connError);
-    }
-
-    // 返回所有信息
-    return NextResponse.json({
-      success: true,
-      message: '诊断信息',
-      prismaInfo,
-      rawAdminData: rawAdminData.length > 0 ? '有数据' : '无数据',
-      dbConnected,
-      prismaClient: {
-        // 安全显示类型和部分内容
-        type: typeof prisma,
-        constructorName: prisma.constructor ? prisma.constructor.name : 'Unknown'
-      }
-    });
+    
+    return NextResponse.json(debugInfo);
   } catch (error) {
-    console.error('调试API错误:', error);
+    console.error('Admin调试API错误:', error);
     return NextResponse.json(
       { 
         success: false, 
-        message: '服务器内部错误', 
-        error: error instanceof Error ? error.message : String(error),
-        errorType: error instanceof Error ? error.name : 'Unknown',
-        prismaType: typeof prisma,
-        stack: error instanceof Error ? error.stack : undefined
+        message: '调试过程中发生错误',
+        error: error instanceof Error ? error.message : String(error) 
       },
       { status: 500 }
     );

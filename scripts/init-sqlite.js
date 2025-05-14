@@ -3,7 +3,7 @@
  * @Code function: 
  * @Date: 2025-05-14 22:00:26
  * @FilePath: /csgo-stats-tracker/scripts/init-sqlite.js
- * @LastEditTime: 2025-05-14 22:09:44
+ * @LastEditTime: 2025-05-14 22:18:17
  */
 const Database = require('better-sqlite3');
 const { randomUUID } = require('crypto');

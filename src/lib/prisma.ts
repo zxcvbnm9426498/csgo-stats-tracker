@@ -7,37 +7,14 @@ declare global {
   var prisma: PrismaClient | undefined;
 }
 
-// 创建PrismaClient实例的函数，添加错误处理和重试逻辑
+// 创建PrismaClient实例的函数，添加错误处理
 function createPrismaClient() {
   try {
     console.log('创建PrismaClient实例...');
     
-    // 确保数据库文件存在
-    const dbPath = path.join(process.cwd(), 'prisma', 'dev.db');
-    const dbExists = fs.existsSync(dbPath);
-    
-    if (!dbExists) {
-      console.warn('SQLite数据库文件不存在:', dbPath);
-      // 创建一个空的数据库文件
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('尝试创建SQLite数据库文件...');
-        try {
-          fs.writeFileSync(dbPath, '');
-          console.log('已创建空数据库文件');
-        } catch (fsError) {
-          console.error('创建数据库文件失败:', fsError);
-        }
-      }
-    }
-    
-    // 创建不带$queryRaw的客户端实例
+    // 创建客户端实例
     const client = new PrismaClient({
       log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-      datasources: {
-        db: {
-          url: `file:${dbPath}`
-        }
-      }
     });
     
     console.log('PrismaClient实例创建成功');
@@ -51,11 +28,13 @@ function createPrismaClient() {
       return {
         admin: { 
           findFirst: () => Promise.resolve(null),
+          findMany: () => Promise.resolve([]),
           count: () => Promise.resolve(0),
           create: (data: any) => Promise.resolve({...data.data, id: 'mock-id', createdAt: new Date()})
         },
         account: {
           findFirst: () => Promise.resolve(null),
+          findMany: () => Promise.resolve([]),
           count: () => Promise.resolve(0),
           create: (data: any) => Promise.resolve({...data.data, id: 'mock-id', createdAt: new Date()}),
           update: () => Promise.resolve(null),

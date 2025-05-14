@@ -188,4 +188,100 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    // 获取请求参数
+    const data = await request.json();
+    const { forceCreate, adminUsername, adminPassword } = data;
+    const username = adminUsername || 'admin';
+    const password = adminPassword || 'admin123';
+    
+    const response = {
+      success: false,
+      message: '',
+      details: null as any
+    };
+    
+    // 直接尝试删除可能存在的管理员账户
+    if (forceCreate) {
+      try {
+        // 先删除原有的同名管理员
+        await prisma.$executeRaw`DELETE FROM "Admin" WHERE username = ${username}`;
+        
+        // 创建新的管理员账户
+        const uuid = crypto.randomUUID();
+        await prisma.$executeRaw`
+          INSERT INTO "Admin" ("id", "username", "password", "role", "createdAt")
+          VALUES (
+            ${uuid},
+            ${username},
+            ${password},
+            'admin',
+            NOW()
+          )
+        `;
+        
+        // 验证创建的管理员账户
+        const admin = await prisma.$queryRaw`
+          SELECT id, username, role FROM "Admin" 
+          WHERE username = ${username} AND password = ${password}
+          LIMIT 1
+        `;
+        
+        const verifySuccess = Array.isArray(admin) && admin.length > 0;
+        if (verifySuccess) {
+          response.success = true;
+          response.message = '管理员账户创建/更新成功';
+          response.details = {
+            id: admin[0].id,
+            username: admin[0].username,
+            role: admin[0].role
+          };
+        } else {
+          response.message = '管理员账户创建/更新失败';
+        }
+      } catch (error) {
+        response.message = '创建管理员账户时出错';
+        response.details = {
+          error: error instanceof Error ? error.message : String(error)
+        };
+      }
+    } else {
+      response.message = '未指定强制创建参数';
+    }
+    
+    return NextResponse.json(response);
+  } catch (error) {
+    console.error('创建管理员API错误:', error);
+    return NextResponse.json(
+      { 
+        success: false, 
+        message: '处理请求时出错',
+        error: error instanceof Error ? error.message : String(error) 
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// 用于调试数据库连接问题的endpoint
+export async function debug() {
+  const results = {
+    dbConnection: false,
+    dbType: process.env.NODE_ENV === 'production' ? 'PostgreSQL' : 'SQLite',
+    prismaVersion: '5.x',
+    databaseUrl: process.env.DATABASE_URL ? '已设置(长度:'+process.env.DATABASE_URL.length+')' : '未设置',
+    error: null as string | null
+  };
+  
+  try {
+    await prisma.$queryRaw`SELECT 1 as connected`;
+    results.dbConnection = true;
+  } catch (error) {
+    results.error = error instanceof Error ? error.message : String(error);
+  }
+  
+  return results;
 } 
