@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdmins, hashPassword } from '@/lib/edge-config';
+import { sql } from '@/lib/db';
+import crypto from 'crypto';
 
-// 直接操作Edge Config对象的API，用于紧急重置管理员密码
+// 密码加盐哈希函数
+function hashPassword(password: string, salt = 'csgo-stats-tracker-salt'): string {
+  return crypto.createHash('sha256').update(password + salt).digest('hex');
+}
+
+// 重置管理员密码API
 export async function POST(request: NextRequest) {
   try {
     // 安全检查 - 只允许在开发环境或提供正确的紧急恢复密钥时使用
@@ -28,34 +34,23 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
     
-    // 获取Edge Config客户端
-    const edgeConfig = await import('@vercel/edge-config').then(m => m.createClient(process.env.EDGE_CONFIG || ''));
+    // 检查管理员是否存在
+    const adminCheck = await sql`SELECT * FROM admins WHERE username = ${username}`;
     
-    // 获取所有管理员
-    const admins = await getAdmins();
-    
-    if (admins.length === 0) {
-      return NextResponse.json({ 
-        success: false, 
-        message: '没有管理员账户' 
-      }, { status: 404 });
-    }
-    
-    // 查找目标管理员
-    const adminIndex = admins.findIndex(a => a.username === username);
-    
-    if (adminIndex === -1) {
+    if (adminCheck.length === 0) {
       return NextResponse.json({ 
         success: false, 
         message: '管理员不存在' 
       }, { status: 404 });
     }
     
-    // 更新密码
-    admins[adminIndex].password = hashPassword(newPassword);
-    
-    // 保存更改
-    await (edgeConfig as any).set('admins', admins);
+    // 更新密码 - 使用PostgreSQL
+    const hashedPassword = hashPassword(newPassword);
+    await sql`
+      UPDATE admins 
+      SET password = ${hashedPassword} 
+      WHERE username = ${username}
+    `;
     
     return NextResponse.json({
       success: true,

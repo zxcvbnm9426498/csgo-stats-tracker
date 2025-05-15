@@ -134,7 +134,7 @@ export async function updateAccount(
 export async function deleteAccount(id: string): Promise<boolean> {
   try {
     const result = await sql`DELETE FROM accounts WHERE id = ${id}`;
-    return result.count > 0;
+    return result.length > 0;
   } catch (error) {
     console.error('删除账号失败:', error);
     return false;
