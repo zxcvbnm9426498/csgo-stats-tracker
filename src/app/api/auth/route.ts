@@ -133,40 +133,34 @@ async function handleGetEloScore(data: any, request: NextRequest) {
     const url = "https://api.wmpvp.com/api/csgo/home/match/list";
     
     const headers = {
-      "Host": "api.wmpvp.com",
       "Accept": "*/*",
       "appversion": "3.5.9",
       "gameTypeStr": "2",
-      "Accept-Encoding": "gzip",
       "Accept-Language": "zh-Hans-CN;q=1.0",
+      "Accept-Encoding": "br;q=1.0, gzip;q=0.9, deflate;q=0.8",
       "platform": "ios",
       "token": token,
-      "appTheme": "0",
       "t": String(timestamp),
-      "User-Agent": "esport-app/3.5.9 (com.wmzq.esportapp; build:2; iOS 18.4.0) Alamofire/5.10.2",
+      "appTheme": "0",
+      "User-Agent": "esport-app/3.5.9 (com.wmzq.esportapp; build:2; iOS 18.5.0) Alamofire/5.10.2",
       "gameType": "2",
       "Connection": "keep-alive",
       "Content-Type": "application/json"
     };
     
-    // 确保steamId为数字类型
-    const numericSteamId = Number(steamId);
-    if (isNaN(numericSteamId)) {
-      console.error('[API] SteamID不是有效的数字:', steamId);
-      return NextResponse.json({
-        statusCode: 1,
-        message: '无效的SteamID格式'
-      }, { status: 400 });
-    }
+    // 确保steamId为字符串类型，防止可能的数值转换问题
+    const steamIdStr = String(steamId);
+    console.log('[API] 原始SteamID字符串:', steamIdStr);
     
+    // 构造与官方客户端一致的payload
     const payload = {
-      "pvpType": -1,
       "mySteamId": 0,
+      "pageSize": 100,
       "csgoSeasonId": "recent",
       "page": 1,
-      "pageSize": 20, // 增加页面大小以获取更多记录
+      "toSteamId": steamIdStr, // 使用字符串形式，避免数值精度问题
       "dataSource": 3,
-      "toSteamId": numericSteamId
+      "pvpType": -1
     };
     
     console.log('[API] 请求比赛数据 payload:', JSON.stringify(payload));
