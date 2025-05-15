@@ -78,6 +78,14 @@ export const MatchHistoryModal: React.FC<MatchHistoryModalProps> = ({
   
   // 处理页面变化
   const handlePageChange = (page: number) => {
+    // 滚动到顶部
+    if (typeof window !== 'undefined') {
+      const modalContent = document.querySelector('.modal-content');
+      if (modalContent) {
+        modalContent.scrollTop = 0;
+      }
+    }
+    
     setCurrentPage(page);
   };
   
@@ -112,7 +120,7 @@ export const MatchHistoryModal: React.FC<MatchHistoryModalProps> = ({
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto modal-content">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold">完整比赛记录</DialogTitle>
         </DialogHeader>
@@ -182,23 +190,28 @@ export const MatchHistoryModal: React.FC<MatchHistoryModalProps> = ({
             </div>
             
             {totalPages > 1 && (
-              <Pagination className="mt-4">
-                <PaginationContent>
-                  {currentPage > 1 && (
-                    <PaginationItem>
-                      <PaginationPrevious onClick={() => handlePageChange(currentPage - 1)} />
-                    </PaginationItem>
-                  )}
-                  
-                  {generatePaginationItems()}
-                  
-                  {currentPage < totalPages && (
-                    <PaginationItem>
-                      <PaginationNext onClick={() => handlePageChange(currentPage + 1)} />
-                    </PaginationItem>
-                  )}
-                </PaginationContent>
-              </Pagination>
+              <div className="mt-6 mb-2">
+                <Pagination className="mt-4">
+                  <PaginationContent className="flex-wrap justify-center">
+                    {currentPage > 1 && (
+                      <PaginationItem>
+                        <PaginationPrevious onClick={() => handlePageChange(currentPage - 1)} />
+                      </PaginationItem>
+                    )}
+                    
+                    {generatePaginationItems()}
+                    
+                    {currentPage < totalPages && (
+                      <PaginationItem>
+                        <PaginationNext onClick={() => handlePageChange(currentPage + 1)} />
+                      </PaginationItem>
+                    )}
+                  </PaginationContent>
+                  <p className="text-center text-sm text-gray-500 mt-2">
+                    第 {currentPage} 页，共 {totalPages} 页
+                  </p>
+                </Pagination>
+              </div>
             )}
           </>
         ) : (

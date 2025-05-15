@@ -8,7 +8,7 @@ const Pagination = ({ className, ...props }: React.ComponentProps<"nav">) => (
   <nav
     role="navigation"
     aria-label="pagination"
-    className={cn("mx-auto flex w-full justify-center", className)}
+    className={cn("mx-auto flex w-full justify-center mt-6", className)}
     {...props}
   />
 )
@@ -20,7 +20,7 @@ const PaginationContent = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <ul
     ref={ref}
-    className={cn("flex flex-row items-center gap-1", className)}
+    className={cn("flex flex-row items-center gap-2", className)}
     {...props}
   />
 ))
@@ -55,9 +55,10 @@ const PaginationLink = ({
     variant={isActive ? "default" : "outline"}
     size={size}
     className={cn(
-      "w-9 h-9 p-0",
+      "min-w-9 h-9 rounded-md transition-all duration-200 hover:scale-105",
       {
-        "pointer-events-none": isActive,
+        "pointer-events-none bg-blue-600 text-white font-medium shadow-md": isActive,
+        "hover:bg-gray-100 hover:border-gray-300": !isActive,
       },
       className
     )}
@@ -77,7 +78,7 @@ const PaginationPrevious = ({
   onClick?: () => void;
 }) => (
   <PaginationLink
-    className={cn("gap-1 pl-2.5", className)}
+    className={cn("gap-1 px-3 rounded-md font-medium hover:bg-blue-50", className)}
     onClick={onClick}
   >
     <ChevronLeft className="h-4 w-4" />
@@ -94,7 +95,7 @@ const PaginationNext = ({
   onClick?: () => void;
 }) => (
   <PaginationLink
-    className={cn("gap-1 pr-2.5", className)}
+    className={cn("gap-1 px-3 rounded-md font-medium hover:bg-blue-50", className)}
     onClick={onClick}
   >
     <span>下一页</span>
@@ -109,7 +110,7 @@ const PaginationEllipsis = ({
 }: React.ComponentProps<"span">) => (
   <span
     aria-hidden
-    className={cn("flex h-9 w-9 items-center justify-center", className)}
+    className={cn("flex h-9 w-9 items-center justify-center text-gray-400", className)}
     {...props}
   >
     <MoreHorizontal className="h-4 w-4" />
