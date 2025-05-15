@@ -12,13 +12,13 @@ import crypto from 'crypto';
 /**
  * 初始化数据库，创建必要的表
  * 
- * 请求头:
- * - x-api-token: API访问令牌（必需）
+ * 此接口无需令牌即可访问，用于初始化部署
  * 
  * 返回:
  * {
  *   success: true,
- *   message: '数据库初始化成功'
+ *   message: '数据库初始化成功',
+ *   token: '如果新创建了令牌，会返回此令牌'
  * }
  */
 export async function GET(request: NextRequest) {
@@ -61,21 +61,24 @@ export async function GET(request: NextRequest) {
     // 检查是否已有令牌，如果没有则创建一个初始令牌
     const tokens = await sql`SELECT * FROM api_tokens LIMIT 1`;
     
+    let newToken: string | null = null;
+    
     if (!tokens || tokens.length === 0) {
       // 创建一个默认令牌，1年后过期
-      const defaultToken = crypto.randomBytes(32).toString('hex');
+      newToken = crypto.randomBytes(32).toString('hex');
       const oneYearLater = new Date();
       oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
       
       await sql`
         INSERT INTO api_tokens (token, description, status, token_expiry)
-        VALUES (${defaultToken}, '初始化默认令牌', 'active', ${oneYearLater.toISOString()})
+        VALUES (${newToken}, '初始化默认令牌', 'active', ${oneYearLater.toISOString()})
       `;
     }
 
     return NextResponse.json({
       success: true,
-      message: '数据库初始化成功'
+      message: '数据库初始化成功',
+      token: newToken // 如果创建了新令牌，则返回它
     });
   } catch (error) {
     console.error('[API] 数据库初始化失败:', error);

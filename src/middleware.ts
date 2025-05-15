@@ -21,7 +21,6 @@ export const config = {
   matcher: [
     '/api/elo/:path*',
     '/api/bans/:path*',
-    '/api/init-db'
   ],
 };
 
@@ -30,10 +29,6 @@ export async function middleware(request: NextRequest) {
   
   // 检查是否为需要保护的管理员路径
   const isAdminPath = pathname.startsWith('/admin') && pathname !== '/admin';
-  
-  // 判断是否需要验证API令牌
-  const needsApiAuth = API_PREFIXES.some(prefix => pathname.startsWith(prefix)) &&
-                     !EXCLUDED_PATHS.includes(pathname);
   
   // 如果是管理页面路径，检查会话
   if (isAdminPath) {
@@ -52,7 +47,7 @@ export async function middleware(request: NextRequest) {
     }
   }
   
-  // 获取API令牌
+  // 获取API令牌并验证
   const token = request.headers.get('x-api-token');
 
   if (!token) {
