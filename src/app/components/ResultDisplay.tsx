@@ -79,6 +79,7 @@ interface PlayerData {
 type ResultDisplayProps = {
   data: PlayerData;
   isLoggedIn?: boolean;
+  onViewDetails?: () => void;
 };
 
 // Helper function to format Unix timestamp to readable string
@@ -99,13 +100,22 @@ const formatTimestamp = (timestamp: number | null): string => {
   }
 };
 
-const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false }) => {
+const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false, onViewDetails }) => {
   const router = useRouter();
   
   // 导航到登录页面
   const navigateToLogin = useCallback(() => {
     router.push('/login');
   }, [router]);
+
+  // 处理查看详情
+  const handleViewDetails = useCallback(() => {
+    // 触发外部回调
+    if (onViewDetails) {
+      onViewDetails();
+    }
+    // 导航到详情页面...
+  }, [onViewDetails]);
 
   useEffect(() => {
     // 初始化这部分不再需要
@@ -285,6 +295,16 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false 
           <p className="text-yellow-700 font-medium">未能获取玩家详细数据，仅有基本信息可用。</p>
         </div>
       )}
+
+      {/* 在底部添加查看详情按钮 */}
+      <div className="mt-8 text-center">
+        <button
+          onClick={handleViewDetails}
+          className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        >
+          查看完整战绩详情
+        </button>
+      </div>
     </div>
   );
 };

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import Link from 'next/link';
+import { useRouter, usePathname } from 'next/navigation';
 import ResultDisplay from './components/ResultDisplay';
 import AccountCard from './components/AccountCard';
 
@@ -72,6 +73,8 @@ const maskPhoneNumber = (phone: string | null): string | null => {
 };
 
 export default function Home() {
+  const router = useRouter();
+  const pathname = usePathname();
   const [isLoading, setIsLoading] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [playerData, setPlayerData] = useState<PlayerData | null>(null);
@@ -100,6 +103,19 @@ export default function Home() {
 
     console.log(`[页面] 初始加载: isLoggedIn=${currentlyLoggedIn}, Phone=${storedPhone}, UserID=${storedUserId}`);
   }, []);
+
+  // 监听页面路径变化，如果用户从其他页面返回，重置activeAccount
+  useEffect(() => {
+    // 当用户从详情页返回时，清除activeAccount状态
+    if (pathname === '/') {
+      // 通过检查sessionStorage判断是否是从详情页返回
+      const isReturnFromDetails = sessionStorage.getItem('viewingDetails');
+      if (isReturnFromDetails === 'true') {
+        setActiveAccount(null);
+        sessionStorage.removeItem('viewingDetails');
+      }
+    }
+  }, [pathname]);
 
   // 当账号被选中且有Steam ID时，获取战绩
   useEffect(() => {
@@ -280,6 +296,11 @@ export default function Home() {
     }
   };
 
+  const handleViewDetails = () => {
+    // 设置一个标记，表示用户正在查看详情页
+    sessionStorage.setItem('viewingDetails', 'true');
+  };
+
   return (
     <main className="min-h-screen py-10 px-4 bg-gray-100">
       <Toaster position="top-center" />
@@ -369,7 +390,11 @@ export default function Home() {
                 </h2>
               </div>
             )}
-            <ResultDisplay data={playerData} isLoggedIn={isLoggedIn} />
+            <ResultDisplay 
+              data={playerData} 
+              isLoggedIn={isLoggedIn} 
+              onViewDetails={handleViewDetails}
+            />
           </div>
         )}
 
@@ -379,10 +404,6 @@ export default function Home() {
             <p className="text-gray-600">没有找到可用的玩家账号，请联系管理员添加账号。</p>
           </div>
         )}
-
-        <footer className="mt-16 text-center text-sm text-gray-500">
-          <p>CSGO 玩家战绩查询系统 © 2023</p>
-        </footer>
       </div>
     </main>
   );
