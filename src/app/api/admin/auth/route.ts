@@ -95,18 +95,21 @@ export async function POST(request: NextRequest) {
             }
           });
 
-          // 设置session cookie
+          // 确保设置正确的cookie，修复cookie设置
+          const expirationDate = new Date();
+          expirationDate.setTime(expirationDate.getTime() + 24 * 60 * 60 * 1000); // 24小时后过期
+          
           response.cookies.set({
             name: 'admin_session',
             value: session.id,
-            expires: new Date(session.expiresAt),
+            expires: expirationDate,
             httpOnly: true,
             path: '/',
-            sameSite: 'strict',
+            sameSite: 'lax', // 改为lax以支持跨页面导航
             secure: process.env.NODE_ENV === 'production'
           });
           
-          console.log(`[Auth API] 成功创建会话: ${session.id}`);
+          console.log(`[Auth API] 成功创建会话: ${session.id}, 过期时间: ${expirationDate.toISOString()}`);
           return response;
         } else {
           // 密码错误

@@ -16,7 +16,14 @@ export default function AdminAuthCheck({ children }: AdminAuthCheckProps) {
     const checkAuth = async () => {
       try {
         // 尝试访问需要认证的API端点
-        const response = await fetch('/api/admin/logs?limit=1');
+        const response = await fetch('/api/admin/logs?limit=1', {
+          method: 'GET',
+          credentials: 'include', // 确保包含cookie
+          cache: 'no-store', // 不缓存结果
+          headers: {
+            'Cache-Control': 'no-cache' 
+          }
+        });
         
         if (!response.ok) {
           if (response.status === 401) {
@@ -41,6 +48,7 @@ export default function AdminAuthCheck({ children }: AdminAuthCheckProps) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-gray-100">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
+        <p className="ml-3">验证身份中...</p>
       </div>
     );
   }

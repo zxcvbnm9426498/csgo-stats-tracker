@@ -3,20 +3,30 @@ import { getLogs, addLog } from '@/app/api/admin/db';
 import { cookies } from 'next/headers';
 
 // 简单的中间件函数，检查管理员是否已登录
-async function isAuthenticated(): Promise<boolean> {
-  // 在实际项目中，应该验证session的有效性，这里简化处理
-  return (await cookies()).has('admin_session');
+async function isAuthenticated(request: NextRequest): Promise<boolean> {
+  const session = request.cookies.get('admin_session');
+  return !!session && !!session.value;
 }
 
 export async function GET(request: NextRequest) {
   try {
-    // 简单的会话验证
-    const session = request.cookies.get('admin_session');
-    if (!session || !session.value) {
+    // 改进会话验证
+    if (!await isAuthenticated(request)) {
+      console.log('[日志API] 未授权访问，找不到有效会话');
+      
+      // 设置正确的响应头以允许客户端处理401
+      const headers = new Headers();
+      headers.append('Content-Type', 'application/json');
+      headers.append('Cache-Control', 'no-store');
+      
       return NextResponse.json({ 
         success: false, 
-        message: '未登录' 
-      }, { status: 401 });
+        message: '未登录或会话已过期',
+        timestamp: new Date().toISOString()
+      }, { 
+        status: 401,
+        headers
+      });
     }
 
     // 获取查询参数
@@ -36,9 +46,16 @@ export async function GET(request: NextRequest) {
       endDate
     });
     
+    // 设置响应头
+    const headers = new Headers();
+    headers.append('Content-Type', 'application/json');
+    headers.append('Cache-Control', 'no-store');
+    
     return NextResponse.json({
       success: true,
       data: result
+    }, {
+      headers
     });
   } catch (error) {
     console.error('获取日志错误:', error);
@@ -52,12 +69,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // 简单的会话验证
-    const session = request.cookies.get('admin_session');
-    if (!session || !session.value) {
+    // 改进会话验证
+    if (!await isAuthenticated(request)) {
       return NextResponse.json({ 
         success: false, 
-        message: '未登录' 
+        message: '未登录或会话已过期'
       }, { status: 401 });
     }
 

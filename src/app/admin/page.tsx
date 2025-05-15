@@ -16,7 +16,8 @@ export default function AdminLoginPage() {
     const checkLoginStatus = async () => {
       try {
         const response = await fetch('/api/admin/logs', {
-          method: 'GET'
+          method: 'GET',
+          credentials: 'include' // 确保包含cookie
         });
         
         if (response.ok) {
@@ -25,6 +26,7 @@ export default function AdminLoginPage() {
         }
       } catch (error) {
         // 未登录或发生错误，无需处理
+        console.log('检查登录状态出错:', error);
       }
     };
     
@@ -52,13 +54,22 @@ export default function AdminLoginPage() {
           username,
           password,
         }),
+        credentials: 'include' // 确保包含cookie
       });
 
       const result = await response.json();
       
       if (result.success) {
         toast.success('登录成功');
-        router.push('/admin/dashboard');
+        
+        // 延迟短暂时间后再跳转，确保cookie已设置
+        setTimeout(() => {
+          router.push('/admin/dashboard');
+          // 强制刷新以重新加载所有组件和状态
+          setTimeout(() => {
+            window.location.href = '/admin/dashboard';
+          }, 100);
+        }, 300);
       } else {
         toast.error(result.message || '登录失败');
       }
