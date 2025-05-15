@@ -1,5 +1,4 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { verifySession } from '@/lib/edge-config';
 import { sql } from '@/lib/db';
 
@@ -13,8 +12,18 @@ const API_PREFIXES = [
 
 // 不需要验证令牌的API路径
 const EXCLUDED_PATHS = [
-  '/api/auth/verify-token'
+  '/api/auth/verify-token',
+  '/api/token/get-public-token',
+  '/api/init-db'
 ];
+
+export const config = {
+  matcher: [
+    '/api/elo/:path*',
+    '/api/bans/:path*',
+    '/api/init-db'
+  ],
+};
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -43,71 +52,50 @@ export async function middleware(request: NextRequest) {
     }
   }
   
-  // 如果是需要验证令牌的API路径
-  if (needsApiAuth) {
-    const token = request.headers.get('x-api-token');
-    
-    // 如果没有提供令牌
-    if (!token) {
+  // 获取API令牌
+  const token = request.headers.get('x-api-token');
+
+  if (!token) {
+    return NextResponse.json(
+      { success: false, message: '未授权访问' },
+      { status: 401 }
+    );
+  }
+
+  try {
+    // 验证令牌是否有效
+    const validTokens = await sql`
+      SELECT * FROM api_tokens 
+      WHERE token = ${token} 
+      AND status = 'active' 
+      AND token_expiry > CURRENT_TIMESTAMP
+    `;
+
+    if (!validTokens || validTokens.length === 0) {
       return NextResponse.json(
-        {
-          success: false,
-          message: '缺少API令牌',
-          code: 'TOKEN_MISSING'
-        },
+        { success: false, message: '无效的API令牌' },
         { status: 401 }
       );
     }
-    
-    try {
-      // 查询令牌是否存在且有效
-      const tokens = await sql`
-        SELECT * FROM api_tokens 
-        WHERE token = ${token} 
-          AND status = 'active' 
-          AND token_expiry > CURRENT_TIMESTAMP
-      `;
-      
-      if (tokens.length === 0) {
-        return NextResponse.json(
-          {
-            success: false,
-            message: '无效的令牌或令牌已过期',
-            code: 'INVALID_TOKEN'
-          },
-          { status: 401 }
-        );
-      }
-      
-      // 更新最后使用时间
-      await sql`
-        UPDATE api_tokens 
-        SET last_used = CURRENT_TIMESTAMP 
-        WHERE id = ${tokens[0].id}
-      `;
-    } catch (error) {
-      console.error('验证令牌时出错:', error);
-      return NextResponse.json(
-        {
-          success: false,
-          message: '验证令牌时发生错误',
-          code: 'INTERNAL_ERROR'
-        },
-        { status: 500 }
-      );
-    }
-  }
-  
-  // 如果所有验证都通过，继续请求
-  return NextResponse.next();
-}
 
-// 配置中间件匹配路径
-export const config = {
-  matcher: [
-    // 匹配管理员路径
-    '/admin/:path*',
-    // 匹配需要验证的API路径
-    '/api/:path*',
-  ],
-}; 
+    // 更新令牌最后使用时间
+    await sql`
+      UPDATE api_tokens 
+      SET last_used = CURRENT_TIMESTAMP 
+      WHERE token = ${token}
+    `;
+
+    // 允许请求继续
+    return NextResponse.next();
+  } catch (error) {
+    console.error('验证API令牌失败:', error);
+    return NextResponse.json(
+      { 
+        success: false, 
+        message: '验证令牌时出错',
+        error: error instanceof Error ? error.message : String(error)
+      },
+      { status: 500 }
+    );
+  }
+} 

@@ -6,56 +6,83 @@
  * @LastEditTime: 2025-05-15 08:47:40
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { addLog } from '@/app/api/admin/db';
-import { initDatabase } from '@/lib/db';
+import { sql } from '@/lib/db';
+import crypto from 'crypto';
 
+/**
+ * 初始化数据库，创建必要的表
+ * 
+ * 请求头:
+ * - x-api-token: API访问令牌（必需）
+ * 
+ * 返回:
+ * {
+ *   success: true,
+ *   message: '数据库初始化成功'
+ * }
+ */
 export async function GET(request: NextRequest) {
   try {
-    // 获取密钥（简单的安全措施）
-    const url = new URL(request.url);
-    const key = url.searchParams.get('key');
+    // 创建api_tokens表（如果不存在）
+    await sql`
+      CREATE TABLE IF NOT EXISTS api_tokens (
+        id SERIAL PRIMARY KEY,
+        token VARCHAR(255) NOT NULL UNIQUE,
+        description TEXT,
+        status VARCHAR(50) DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        token_expiry TIMESTAMP,
+        last_used TIMESTAMP
+      )
+    `;
+
+    // 创建player_elo表（如果不存在）
+    await sql`
+      CREATE TABLE IF NOT EXISTS player_elo (
+        id SERIAL PRIMARY KEY,
+        steam_id VARCHAR(255) NOT NULL UNIQUE,
+        data JSONB NOT NULL,
+        created_at TIMESTAMP NOT NULL,
+        updated_at TIMESTAMP NOT NULL
+      )
+    `;
+
+    // 创建player_bans表（如果不存在）
+    await sql`
+      CREATE TABLE IF NOT EXISTS player_bans (
+        id SERIAL PRIMARY KEY,
+        steam_id VARCHAR(255) NOT NULL UNIQUE,
+        data JSONB NOT NULL,
+        created_at TIMESTAMP NOT NULL,
+        updated_at TIMESTAMP NOT NULL
+      )
+    `;
+
+    // 检查是否已有令牌，如果没有则创建一个初始令牌
+    const tokens = await sql`SELECT * FROM api_tokens LIMIT 1`;
     
-    // 验证密钥
-    if (key !== process.env.DB_INIT_KEY && key !== 'development-init-key') {
-      return NextResponse.json({
-        success: false,
-        message: '未授权访问'
-      }, { status: 401 });
+    if (!tokens || tokens.length === 0) {
+      // 创建一个默认令牌，1年后过期
+      const defaultToken = crypto.randomBytes(32).toString('hex');
+      const oneYearLater = new Date();
+      oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+      
+      await sql`
+        INSERT INTO api_tokens (token, description, status, token_expiry)
+        VALUES (${defaultToken}, '初始化默认令牌', 'active', ${oneYearLater.toISOString()})
+      `;
     }
-    
-    console.log('执行数据库初始化...');
-    
-    // 初始化数据库结构
-    await initDatabase();
-    
-    // 添加初始化日志
-    await addLog({
-      action: 'SYSTEM_INIT',
-      details: '系统初始化',
-      ip: 'localhost'
-    });
-    
+
     return NextResponse.json({
       success: true,
       message: '数据库初始化成功'
     });
   } catch (error) {
-    console.error('数据库初始化失败:', error);
-    
-    // 错误响应也添加正确的头部
-    const headers = new Headers();
-    headers.append("Content-Type", "application/json; charset=utf-8");
-    
-    return new NextResponse(
-      JSON.stringify({ 
-        success: false, 
-        message: '数据库初始化失败',
-        error: error instanceof Error ? error.message : String(error)
-      }),
-      { 
-        status: 500,
-        headers
-      }
-    );
+    console.error('[API] 数据库初始化失败:', error);
+    return NextResponse.json({
+      success: false,
+      message: '数据库初始化失败',
+      error: error instanceof Error ? error.message : String(error)
+    }, { status: 500 });
   }
 } 
