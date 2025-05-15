@@ -112,6 +112,7 @@ export default function Home() {
       const isReturnFromDetails = sessionStorage.getItem('viewingDetails');
       if (isReturnFromDetails === 'true') {
         setActiveAccount(null);
+        setPlayerData(null); // 清除玩家数据，防止结果显示再次出现
         sessionStorage.removeItem('viewingDetails');
       }
     }
@@ -361,7 +362,10 @@ export default function Home() {
         {activeAccount && (
           <div className="mb-6">
             <button
-              onClick={() => setActiveAccount(null)}
+              onClick={() => {
+                setActiveAccount(null);
+                setPlayerData(null); // 清除玩家数据，防止结果显示重复出现
+              }}
               className="flex items-center text-blue-600 hover:text-blue-800"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
@@ -381,7 +385,7 @@ export default function Home() {
         )}
 
         {/* 结果展示 */}
-        {!isLoading && playerData && (
+        {!isLoading && playerData && activeAccount && (
           <div>
             {activeAccount && (
               <div className="mb-6 text-center">
