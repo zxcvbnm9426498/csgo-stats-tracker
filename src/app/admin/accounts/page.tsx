@@ -29,9 +29,7 @@ export default function AccountsPage() {
   // 新账号表单数据
   const [formData, setFormData] = useState({
     username: '',
-    phone: '',
-    steamId: '',
-    status: 'active' as 'active' | 'suspended' | 'banned'
+    steamId: ''
   });
 
   // 加载账号数据
@@ -92,9 +90,7 @@ export default function AccountsPage() {
     setEditingAccount(null);
     setFormData({
       username: '',
-      phone: '',
-      steamId: '',
-      status: 'active'
+      steamId: ''
     });
     setShowModal(true);
   };
@@ -104,21 +100,13 @@ export default function AccountsPage() {
     setEditingAccount(account);
     setFormData({
       username: account.username,
-      phone: account.phone,
-      steamId: account.steamId || '',
-      status: account.status
+      steamId: account.steamId || ''
     });
     setShowModal(true);
   };
 
   // 验证表单输入
   const validateForm = () => {
-    // 检查手机号是否已填写
-    if (!formData.phone.trim()) {
-      toast.error('请输入手机号');
-      return false;
-    }
-
     // 检查用户名和Steam ID是否至少填写了一个
     if (!formData.username.trim() && !formData.steamId.trim()) {
       toast.error('用户名和Steam ID至少填写一项');
@@ -371,22 +359,6 @@ export default function AccountsPage() {
                   </div>
                   
                   <div>
-                    <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-                      手机号 <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      id="phone"
-                      name="phone"
-                      required
-                      value={formData.phone}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      placeholder="请输入手机号码"
-                    />
-                  </div>
-                  
-                  <div>
                     <label htmlFor="steamId" className="block text-sm font-medium text-gray-700 mb-1">
                       Steam ID
                     </label>
@@ -397,30 +369,12 @@ export default function AccountsPage() {
                       value={formData.steamId}
                       onChange={handleChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      placeholder="选填，Steam ID"
+                      placeholder="请输入Steam ID"
                     />
                   </div>
                   
-                  <div>
-                    <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
-                      状态 <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      id="status"
-                      name="status"
-                      required
-                      value={formData.status}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    >
-                      <option value="active">活跃</option>
-                      <option value="suspended">已暂停</option>
-                      <option value="banned">已封禁</option>
-                    </select>
-                  </div>
-                  
                   <div className="text-sm text-gray-500 italic">
-                    注: 手机号为必填项，用户名和Steam ID至少填写一项
+                    注: 用户名和Steam ID至少填写一项
                   </div>
                 </div>
                 

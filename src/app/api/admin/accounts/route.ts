@@ -93,16 +93,9 @@ export async function POST(request: NextRequest) {
     
     // 获取请求数据
     const body = await request.json();
-    const { username, phone, steamId, status } = body;
+    const { username, steamId } = body;
     
-    // 修改验证逻辑：必须有手机号，且用户名或Steam ID至少有一个
-    if (!phone) {
-      return NextResponse.json({
-        success: false,
-        message: '手机号是必填字段'
-      }, { status: 400 });
-    }
-    
+    // 简化验证逻辑：用户名和Steam ID至少有一个
     if (!username && !steamId) {
       return NextResponse.json({
         success: false,
@@ -112,16 +105,16 @@ export async function POST(request: NextRequest) {
     
     // 创建账号
     const account = await addAccount({
-      username: username || `用户_${phone.substring(phone.length-4)}`, // 如果没有用户名，使用手机号后4位作为默认名称
-      phone,
+      username: username || `用户_${Date.now().toString().slice(-6)}`, // 如果没有用户名，使用时间戳后6位作为默认名称
+      phone: '', // 保留空字段以兼容数据库结构
       steamId,
-      status: status || 'active'
+      status: 'active' // 默认为活跃状态
     });
     
     // 记录操作日志
     await addLog({
       action: 'CREATE_ACCOUNT',
-      details: `创建账号: ${username || steamId || phone}`,
+      details: `创建账号: ${username || steamId}`,
       ip: request.headers.get('x-forwarded-for') || 'unknown'
     });
     
@@ -153,7 +146,7 @@ export async function PUT(request: NextRequest) {
     
     // 获取请求数据
     const body = await request.json();
-    const { id, username, phone, steamId, status } = body;
+    const { id, username, steamId } = body;
     
     if (!id) {
       return NextResponse.json({
@@ -162,12 +155,18 @@ export async function PUT(request: NextRequest) {
       }, { status: 400 });
     }
     
+    // 简化验证逻辑：用户名和Steam ID至少有一个
+    if (!username && !steamId) {
+      return NextResponse.json({
+        success: false,
+        message: '用户名和Steam ID至少填写一项'
+      }, { status: 400 });
+    }
+    
     // 更新账号
     const account = await updateAccount(id, {
       username,
-      phone,
-      steamId,
-      status
+      steamId
     });
     
     if (!account) {
