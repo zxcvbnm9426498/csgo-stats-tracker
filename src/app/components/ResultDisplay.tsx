@@ -59,6 +59,7 @@ interface PlayerStatsData {
   data: {
     pvpScore?: number;
     matchList?: MatchData[];
+    noMatchData?: boolean;
     // ... other stats data
   };
 }
@@ -292,6 +293,36 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false,
         </div>
       </div>
 
+      {/* 玩家ELO分数和比赛数据状态 */}
+      <div className="mb-8">
+        <h3 className="text-xl font-semibold mb-4 text-gray-800">ELO 分数</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-4 bg-gray-50 rounded-md">
+            <p className="text-sm font-medium text-gray-700">当前分数</p>
+            <p className="text-2xl font-bold text-blue-600">
+              {(playerStats?.data?.pvpScore !== null && playerStats?.data?.pvpScore !== undefined)
+                ? `${playerStats.data.pvpScore}` 
+                : eloData?.data?.pvpScore
+                  ? `${eloData.data.pvpScore}` 
+                  : loadingElo 
+                    ? '加载中...' 
+                    : '获取中...'}
+            </p>
+          </div>
+          <div className="p-4 bg-gray-50 rounded-md">
+            <p className="text-sm font-medium text-gray-700">比赛记录</p>
+            <p className="font-medium">
+              {playerStats?.data?.noMatchData 
+                ? <span className="text-orange-500">暂无比赛记录</span>
+                : (playerStats?.data?.matchList && playerStats.data.matchList.length > 0)
+                  ? <span className="text-green-600">已获取 {playerStats.data.matchList.length} 场比赛记录</span>
+                  : <span className="text-gray-500">加载中...</span>
+              }
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* 账号信息 (如果有) */}
       {userInfo && userInfo.code === 1 && userInfo.data && (
         <div className="mb-8">
@@ -332,63 +363,91 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false,
         </div>
       )}
 
-      {/* 比赛战绩列表 */}
-      {playerStats?.data?.matchList && playerStats.data.matchList.length > 0 && (
+      {/* 比赛记录 */}
+      {isLoggedIn && (
         <div className="mb-8">
-          <h3 className="text-xl font-semibold mb-4 text-gray-800">近期比赛战绩</h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">日期</th>
-                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">地图</th>
-                  <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">比分</th>
-                  <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">战绩</th>
-                  <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">评分</th>
-                  <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">ELO</th>
-                  <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">变动</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {playerStats.data.matchList.map((match, index) => (
-                  <tr key={match.matchId} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">{formatMatchDate(match.timeStamp)}</td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
-                      <div className="flex items-center">
-                        {match.mapLogo && (
-                          <img src={match.mapLogo} alt={match.mapName} className="w-5 h-5 mr-2" />
-                        )}
-                        {match.mapName}
-                      </div>
-                    </td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-center font-medium">
-                      <span className={`px-2 py-1 rounded ${match.team === match.winTeam ? 'bg-green-100' : match.winTeam === -1 ? 'bg-blue-50' : 'bg-red-100'}`}>
-                        {match.score1}:{match.score2}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
-                      {match.kill}/{match.death}/{match.assist}
-                    </td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-center font-medium">
-                      <span className={getRatingColor(match.rating)}>
-                        {typeof match.rating === 'number' 
-                          ? match.rating.toFixed(2) 
-                          : typeof match.rating === 'string' 
-                            ? match.rating 
-                            : '0.00'}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-center">{match.pvpScore}</td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-center font-medium">
-                      <span className={match.pvpScoreChange > 0 ? 'text-green-600' : 'text-red-600'}>
-                        {match.pvpScoreChange > 0 ? '+' : ''}{match.pvpScoreChange}
-                      </span>
-                    </td>
+          <h3 className="text-xl font-semibold mb-4 text-gray-800">最近比赛</h3>
+          
+          {loadingElo ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
+              <p className="text-gray-600">正在加载比赛数据...</p>
+            </div>
+          ) : playerStats?.data?.noMatchData ? (
+            <div className="p-8 bg-gray-50 rounded-lg text-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M12 13a3 3 0 100-6 3 3 0 000 6z" />
+              </svg>
+              <h4 className="text-lg font-medium text-gray-700 mb-2">暂无比赛记录</h4>
+              <p className="text-gray-500">该玩家近期没有参与任何比赛或比赛记录尚未同步。</p>
+            </div>
+          ) : matchList.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">地图</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">比分</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">时间</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">K/D/A</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rating</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ELO变化</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {matchList.map((match, index) => (
+                    <tr key={match.matchId || index} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          {match.mapLogo && (
+                            <img 
+                              src={match.mapLogo} 
+                              alt={match.mapName} 
+                              className="h-8 w-8 mr-2 rounded"
+                            />
+                          )}
+                          <span>{match.mapName}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          match.team === 1 
+                            ? (match.score1 > match.score2 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800')
+                            : (match.score2 > match.score1 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800')
+                        }`}>
+                          {match.score1} : {match.score2}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {formatMatchDate(match.timeStamp)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <span className="font-medium text-gray-900">{match.kill}</span>
+                        <span className="text-gray-500"> / </span>
+                        <span className="font-medium text-gray-900">{match.death}</span>
+                        <span className="text-gray-500"> / </span>
+                        <span className="font-medium text-gray-900">{match.assist}</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <span className={`font-medium ${getRatingColor(match.rating)}`}>
+                          {typeof match.rating === 'number' ? match.rating.toFixed(2) : match.rating}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <span className={`font-medium ${match.pvpScoreChange > 0 ? 'text-green-600' : match.pvpScoreChange < 0 ? 'text-red-600' : 'text-gray-500'}`}>
+                          {match.pvpScoreChange > 0 ? '+' : ''}{match.pvpScoreChange}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-gray-600">无法获取比赛记录。请稍后再试或检查您的账号关联。</p>
+            </div>
+          )}
         </div>
       )}
 

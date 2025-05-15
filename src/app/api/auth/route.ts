@@ -149,14 +149,24 @@ async function handleGetEloScore(data: any, request: NextRequest) {
       "Content-Type": "application/json"
     };
     
+    // 确保steamId为数字类型
+    const numericSteamId = Number(steamId);
+    if (isNaN(numericSteamId)) {
+      console.error('[API] SteamID不是有效的数字:', steamId);
+      return NextResponse.json({
+        statusCode: 1,
+        message: '无效的SteamID格式'
+      }, { status: 400 });
+    }
+    
     const payload = {
       "pvpType": -1,
       "mySteamId": 0,
       "csgoSeasonId": "recent",
       "page": 1,
-      "pageSize": 11,
+      "pageSize": 20, // 增加页面大小以获取更多记录
       "dataSource": 3,
-      "toSteamId": Number(steamId)
+      "toSteamId": numericSteamId
     };
     
     console.log('[API] 请求比赛数据 payload:', JSON.stringify(payload));
@@ -164,15 +174,44 @@ async function handleGetEloScore(data: any, request: NextRequest) {
     const response = await axios.post(url, payload, { headers });
     const responseData = response.data;
     
+    console.log('[API] 完美世界API响应状态:', responseData.statusCode);
+    if (responseData.errorMessage) {
+      console.log('[API] 完美世界API错误信息:', responseData.errorMessage);
+    }
+    
     // 检查API响应是否成功
-    if (responseData.statusCode === 0 && responseData.data) {
-      console.log('[API] 成功获取比赛数据');
+    if (responseData.statusCode === 0) {
+      console.log('[API] 请求完美世界API成功');
+      
+      // 检查matchList是否为空
+      if (!responseData.data || !responseData.data.matchList || responseData.data.matchList.length === 0) {
+        console.log('[API] 警告: 玩家没有比赛记录');
+        
+        // 创建一个包含提示信息的响应
+        return NextResponse.json({
+          statusCode: 0,
+          message: '没有找到比赛记录',
+          data: {
+            dataPublic: true,
+            pvpScore: 0, // 设置默认ELO分数
+            noMatchData: true, // 指示没有比赛数据的标志
+            matchList: [] // 保持空数组
+          }
+        });
+      }
+      
+      console.log('[API] 成功获取比赛数据，比赛数量:', responseData.data.matchList.length);
       
       // 缓存获取到的数据到数据库
       try {
         const matchList = responseData.data.matchList || [];
         if (matchList.length > 0) {
+          // 从第一场比赛中获取pvpScore
           const pvpScore = matchList[0].pvpScore || 0;
+          console.log('[API] 当前玩家ELO分数:', pvpScore);
+          
+          // 将pvpScore添加到响应的顶层，方便前端访问
+          responseData.data.pvpScore = pvpScore;
           
           // 构建历史记录数据以保存在player_elo表中
           const history = matchList.map((match: any) => ({
@@ -224,6 +263,14 @@ async function handleGetEloScore(data: any, request: NextRequest) {
     }
   } catch (error) {
     console.error('[API] 获取ELO分数数据失败:', error);
+    // 打印更详细的错误信息
+    if (error instanceof Error) {
+      console.error('[API] 错误详情:', error.message);
+      if ('response' in error && error.response) {
+        console.error('[API] 服务器响应:', error.response);
+      }
+    }
+    
     return NextResponse.json({
       statusCode: 1,
       message: '获取ELO分数数据失败',
