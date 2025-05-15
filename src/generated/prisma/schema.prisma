@@ -27,7 +27,8 @@ model Admin {
 model Account {
   id        String    @id @default(uuid())
   username  String    @unique
-  phone     String    @unique
+  phone     String?   @unique
+  userId    String?   @unique
   steamId   String?
   status    String // "active", "suspended", or "banned"
   createdAt DateTime  @default(now())

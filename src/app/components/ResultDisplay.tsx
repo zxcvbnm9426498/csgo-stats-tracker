@@ -131,6 +131,30 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false,
   const detailStats = detailedStats?.detailed_stats as Record<string, Record<string, string>> | undefined;
   const weapons = detailedStats?.weapons as Weapon[] | undefined;
   const maps = detailedStats?.maps as Map[] | undefined;
+  
+  // 从playerStats获取比赛列表
+  const matchList = data.playerStats?.data?.matchList || [];
+
+  // 格式化日期时间
+  const formatMatchDate = (timestamp: number) => {
+    if (!timestamp) return '未知时间';
+    const date = new Date(timestamp * 1000);
+    return date.toLocaleString('zh-CN', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  // 评分的颜色
+  const getRatingColor = (rating: number) => {
+    if (rating >= 2.0) return 'text-purple-600';
+    if (rating >= 1.5) return 'text-green-600';
+    if (rating >= 1.0) return 'text-blue-600';
+    if (rating >= 0.85) return 'text-yellow-600';
+    return 'text-red-600';
+  };
 
   return (
     <div className="w-full max-w-5xl mx-auto mt-8 p-6 bg-white rounded-xl shadow-md">
@@ -142,7 +166,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false,
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="p-4 bg-gray-50 rounded-md">
             <p className="text-sm font-medium text-gray-700">玩家名称</p>
-            <p className="font-medium text-gray-900">{playerInfo?.name || detailedStats?.player_name || '未知'}</p>
+            <p className="font-medium text-gray-900">{playerInfo?.name || detailedStats?.player_name || userInfo?.data?.player?.personaname || '未知'}</p>
           </div>
           <div className="p-4 bg-gray-50 rounded-md">
             <p className="text-sm font-medium text-gray-700">Steam ID</p>
@@ -183,6 +207,60 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false,
                     : '无封禁记录'}
               </p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 比赛战绩列表 */}
+      {matchList.length > 0 && (
+        <div className="mb-8">
+          <h3 className="text-xl font-semibold mb-4 text-gray-800">近期比赛战绩</h3>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">日期</th>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">地图</th>
+                  <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">比分</th>
+                  <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">战绩</th>
+                  <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">评分</th>
+                  <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">ELO</th>
+                  <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">变动</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {matchList.map((match, index) => (
+                  <tr key={match.matchId} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">{formatMatchDate(match.timeStamp)}</td>
+                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
+                      <div className="flex items-center">
+                        {match.mapLogo && (
+                          <img src={match.mapLogo} alt={match.mapName} className="w-5 h-5 mr-2" />
+                        )}
+                        {match.mapName}
+                      </div>
+                    </td>
+                    <td className="px-3 py-3 whitespace-nowrap text-sm text-center font-medium">
+                      <span className={`px-2 py-1 rounded ${match.team === match.winTeam ? 'bg-green-100' : match.winTeam === -1 ? 'bg-blue-50' : 'bg-red-100'}`}>
+                        {match.score1}:{match.score2}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 whitespace-nowrap text-sm text-center">
+                      {match.kill}/{match.death}/{match.assist}
+                    </td>
+                    <td className="px-3 py-3 whitespace-nowrap text-sm text-center font-medium">
+                      <span className={getRatingColor(match.rating)}>{match.rating.toFixed(2)}</span>
+                    </td>
+                    <td className="px-3 py-3 whitespace-nowrap text-sm text-center">{match.pvpScore}</td>
+                    <td className="px-3 py-3 whitespace-nowrap text-sm text-center font-medium">
+                      <span className={match.pvpScoreChange > 0 ? 'text-green-600' : 'text-red-600'}>
+                        {match.pvpScoreChange > 0 ? '+' : ''}{match.pvpScoreChange}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -290,7 +368,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false,
       )}
 
       {/* 如果没有数据 */}
-      {!userInfo && !detailedStats && (
+      {!userInfo && !detailedStats && matchList.length === 0 && (
         <div className="p-4 border border-yellow-300 bg-yellow-50 rounded-md">
           <p className="text-yellow-700 font-medium">未能获取玩家详细数据，仅有基本信息可用。</p>
         </div>
