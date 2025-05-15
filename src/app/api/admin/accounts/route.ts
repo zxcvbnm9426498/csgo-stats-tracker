@@ -104,25 +104,34 @@ export async function POST(request: NextRequest) {
     }
     
     // 创建账号
-    const account = await addAccount({
-      username: username || `用户_${Date.now().toString().slice(-6)}`, // 如果没有用户名，使用时间戳后6位作为默认名称
-      phone: '', // 保留空字段以兼容数据库结构
-      steamId,
-      status: 'active' // 默认为活跃状态
-    });
-    
-    // 记录操作日志
-    await addLog({
-      action: 'CREATE_ACCOUNT',
-      details: `创建账号: ${username || steamId}`,
-      ip: request.headers.get('x-forwarded-for') || 'unknown'
-    });
-    
-    return NextResponse.json({
-      success: true,
-      message: '账号创建成功',
-      data: { account }
-    });
+    try {
+      const account = await addAccount({
+        username: username || `用户_${Date.now().toString().slice(-6)}`, // 如果没有用户名，使用时间戳后6位作为默认名称
+        phone: '', // 保留空字段以兼容数据库结构
+        steamId,
+        status: 'active' // 默认为活跃状态
+      });
+      
+      // 记录操作日志
+      await addLog({
+        action: 'CREATE_ACCOUNT',
+        details: `创建账号: ${username || steamId}`,
+        ip: request.headers.get('x-forwarded-for') || 'unknown'
+      });
+      
+      return NextResponse.json({
+        success: true,
+        message: '账号创建成功',
+        data: { account }
+      });
+    } catch (dbError) {
+      console.error('数据库操作失败:', dbError);
+      return NextResponse.json({
+        success: false,
+        message: '创建账号失败',
+        error: dbError instanceof Error ? dbError.message : String(dbError)
+      }, { status: 500 });
+    }
   } catch (error) {
     console.error('创建账号失败:', error);
     return NextResponse.json({

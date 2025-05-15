@@ -5,12 +5,24 @@
  * @FilePath: /csgo-stats-tracker/src/app/api/init-db/route.ts
  * @LastEditTime: 2025-05-15 08:47:40
  */
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { addLog } from '@/app/api/admin/db';
 import { initDatabase } from '@/lib/db';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // 获取密钥（简单的安全措施）
+    const url = new URL(request.url);
+    const key = url.searchParams.get('key');
+    
+    // 验证密钥
+    if (key !== process.env.DB_INIT_KEY && key !== 'development-init-key') {
+      return NextResponse.json({
+        success: false,
+        message: '未授权访问'
+      }, { status: 401 });
+    }
+    
     console.log('执行数据库初始化...');
     
     // 初始化数据库结构
@@ -23,21 +35,10 @@ export async function GET() {
       ip: 'localhost'
     });
     
-    // 设置响应头，确保字符编码正确
-    const headers = new Headers();
-    headers.append("Content-Type", "application/json; charset=utf-8");
-    
-    return new NextResponse(
-      JSON.stringify({
-        success: true,
-        message: "数据库初始化成功",
-        timestamp: new Date().toISOString()
-      }),
-      {
-        status: 200,
-        headers
-      }
-    );
+    return NextResponse.json({
+      success: true,
+      message: '数据库初始化成功'
+    });
   } catch (error) {
     console.error('数据库初始化失败:', error);
     

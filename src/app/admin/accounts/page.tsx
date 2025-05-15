@@ -146,7 +146,12 @@ export default function AccountsPage() {
         setShowModal(false);
         loadAccounts(currentPage);
       } else {
+        console.error('操作失败详情:', result);
         toast.error(result.message || '操作失败');
+        if (result.error) {
+          console.error('详细错误:', result.error);
+          toast.error(`错误详情: ${result.error}`);
+        }
       }
     } catch (error) {
       console.error('提交表单时出错:', error);

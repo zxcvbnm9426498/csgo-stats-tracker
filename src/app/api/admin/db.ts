@@ -43,21 +43,31 @@ export async function getAccounts(): Promise<Account[]> {
 export async function addAccount(accountData: Omit<Account, 'id' | 'createdAt'>): Promise<Account> {
   const { username, phone, steamId, status } = accountData;
   
-  const result = await sql`
-    INSERT INTO accounts (username, phone, "steamId", status)
-    VALUES (${username}, ${phone}, ${steamId || null}, ${status || 'active'})
-    RETURNING *
-  `;
-  
-  const row = result[0];
-  return {
-    id: row.id.toString(),
-    username: row.username,
-    phone: row.phone,
-    steamId: row.steamid || undefined,
-    status: row.status as 'active' | 'suspended' | 'banned',
-    createdAt: new Date(row.createdat).toISOString()
-  };
+  try {
+    // 明确使用双引号包裹列名，按照PostgreSQL标准
+    const result = await sql`
+      INSERT INTO accounts (username, phone, "steamId", status, "createdAt")
+      VALUES (${username}, ${phone || ''}, ${steamId || null}, ${status || 'active'}, now())
+      RETURNING id, username, phone, "steamId" as steamid, status, "createdAt" as createdat
+    `;
+    
+    if (!result || result.length === 0) {
+      throw new Error('账号创建失败: 数据库未返回结果');
+    }
+    
+    const row = result[0];
+    return {
+      id: row.id.toString(),
+      username: row.username,
+      phone: row.phone,
+      steamId: row.steamid || undefined,
+      status: row.status as 'active' | 'suspended' | 'banned',
+      createdAt: row.createdat ? new Date(row.createdat).toISOString() : new Date().toISOString()
+    };
+  } catch (error) {
+    console.error('添加账号失败:', error);
+    throw new Error(`添加账号失败: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 // 更新账号

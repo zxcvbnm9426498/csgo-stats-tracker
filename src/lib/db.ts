@@ -45,8 +45,8 @@ export async function initDatabase() {
         phone VARCHAR(20) NOT NULL,
         "steamId" VARCHAR(50),
         status VARCHAR(20) DEFAULT 'active',
-        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        "lastLogin" TIMESTAMP
+        "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        "lastLogin" TIMESTAMP WITH TIME ZONE
       )
     `;
 
