@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchById, searchBySteamId } from './utils';
 import { addLog } from '../admin/db';
+import { sql } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,11 +40,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 如果有token，添加额外数据到响应
-    if (result.playerInfo?.steamId64Str && token) {
+    // 优先使用请求头中的Token，如果没有提供，则尝试从数据库获取Token
+    let tokenToUse = token;
+    
+    if (!tokenToUse && result.playerInfo?.steamId64Str) {
       try {
+        // 查询数据库中的Token
+        console.log('[CSGO API] 尝试从数据库获取Token');
+        const tokenData = await sql`
+          SELECT "authToken", "tokenExpiry" 
+          FROM accounts 
+          WHERE "steamId" = ${result.playerInfo.steamId64Str}
+          AND "authToken" IS NOT NULL
+          AND "tokenExpiry" > now()
+          ORDER BY "tokenExpiry" DESC
+          LIMIT 1
+        `;
+        
+        if (tokenData && tokenData.length > 0) {
+          console.log('[CSGO API] 从数据库获取到有效Token');
+          tokenToUse = tokenData[0].authToken;
+        } else {
+          console.log('[CSGO API] 数据库中没有找到有效Token');
+        }
+      } catch (dbError) {
+        console.error('[CSGO API] 从数据库获取Token失败:', dbError);
+      }
+    }
+
+    // 如果有Token，添加额外数据到响应
+    if (result.playerInfo?.steamId64Str && tokenToUse) {
+      try {
+        console.log('[CSGO API] 使用Token获取额外数据');
         // 获取比赛数据（ELO分数详情）
-        const matchData = await fetchMatchData(result.playerInfo.steamId64Str, token);
+        const matchData = await fetchMatchData(result.playerInfo.steamId64Str, tokenToUse);
         if (matchData && matchData.statusCode === 0) {
           // 包含比赛数据在响应中
           result.playerStats = matchData;

@@ -52,6 +52,30 @@ export default function AdminUserLoginPage() {
             console.log(`[Login] Stored userId: ${userId}`);
           }
           
+          // 保存令牌到数据库
+          try {
+            const saveResponse = await fetch('/api/admin/save-token', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                phone: loggedInPhone,
+                userId: userId?.toString(),
+                authToken: token,
+              }),
+            });
+            
+            const saveResult = await saveResponse.json();
+            if (saveResult.success) {
+              console.log('[Login] Token saved to database successfully');
+            } else {
+              console.error('[Login] Failed to save token to database:', saveResult.message);
+            }
+          } catch (saveError) {
+            console.error('[Login] Error saving token to database:', saveError);
+          }
+          
           toast.success('登录成功');
           
           // 登录成功后刷新当前页面

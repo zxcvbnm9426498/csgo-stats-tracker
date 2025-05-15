@@ -112,6 +112,35 @@ export async function POST(request: NextRequest) {
       // 继续执行
     }
 
+    // 5. 创建API认证令牌表（如果不存在）
+    try {
+      console.log('[API] 尝试创建api_tokens表...');
+      await sql`
+        CREATE TABLE IF NOT EXISTS api_tokens (
+          id TEXT PRIMARY KEY,
+          phone TEXT,
+          verification_code TEXT,
+          token TEXT,
+          token_expiry TIMESTAMP,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          last_used TIMESTAMP,
+          source TEXT,
+          status TEXT DEFAULT 'active'
+        )
+      `;
+      updates.push('api_tokens表检查/创建');
+      
+      // 添加索引
+      await sql`CREATE INDEX IF NOT EXISTS idx_api_tokens_token ON api_tokens(token)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_api_tokens_phone ON api_tokens(phone)`;
+      updates.push('创建api_tokens索引');
+      
+      console.log('[API] api_tokens表已创建或已存在');
+    } catch (error) {
+      console.error('[API] 创建api_tokens表失败:', error);
+      // 继续执行
+    }
+
     // 返回成功响应
     return NextResponse.json({
       success: true,

@@ -31,6 +31,8 @@ model Account {
   userId    String?   @unique
   steamId   String?
   status    String // "active", "suspended", or "banned"
+  authToken String?   // 完美世界平台认证Token
+  tokenExpiry DateTime? // Token过期时间
   createdAt DateTime  @default(now())
   lastLogin DateTime?
 }

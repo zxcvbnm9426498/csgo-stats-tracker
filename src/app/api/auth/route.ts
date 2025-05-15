@@ -3,10 +3,160 @@ import axios from 'axios';
 // Import the conversion function (adjust path if necessary)
 import { getSteamIdFromAlternativeApi } from '../csgo/utils'; 
 import { addLog } from '../admin/db';
+import { sql } from '@/lib/db';
 
 // Helper function to check if an ID is likely a 64-bit Steam ID
 function isSteamID64(id: string): boolean {
   return /^[7][6][5][6][1][1][9]\d{10}$/.test(id);
+}
+
+// 从数据库获取有效Token
+async function getTokenFromDatabase(steamId: string): Promise<string | null> {
+  try {
+    console.log(`[API] 尝试从数据库获取 SteamID ${steamId} 的Token`);
+    const tokenData = await sql`
+      SELECT "authToken", "tokenExpiry" 
+      FROM accounts 
+      WHERE "steamId" = ${steamId}
+      AND "authToken" IS NOT NULL
+      AND "tokenExpiry" > now()
+      ORDER BY "tokenExpiry" DESC
+      LIMIT 1
+    `;
+    
+    if (tokenData && tokenData.length > 0) {
+      console.log('[API] 从数据库获取到有效Token');
+      return tokenData[0].authToken;
+    } else {
+      console.log('[API] 数据库中没有找到有效Token');
+      return null;
+    }
+  } catch (error) {
+    console.error('[API] 从数据库获取Token失败:', error);
+    return null;
+  }
+}
+
+// 检查封禁状态
+async function handleCheckBan(steamId64: string, providedToken: string): Promise<NextResponse> {
+  console.log(`[API] Processing checkBan action for SteamID64: ${steamId64}`);
+  
+  // 优先使用请求中提供的Token，如果没有则从数据库获取
+  let token = providedToken;
+  if (!token) {
+    const dbToken = await getTokenFromDatabase(steamId64);
+    if (!dbToken) {
+      console.warn('[API] Warning: No valid token found for checkBan');
+      return NextResponse.json({ error: '需要登录或数据库中无有效Token' }, { status: 401 });
+    }
+    token = dbToken;
+  }
+
+  // 记录请求
+  addLog({
+    action: 'CHECK_BAN_STATUS',
+    details: `检查玩家封禁状态，Steam ID: ${steamId64}`,
+    ip: 'unknown'
+  });
+
+  const url = "https://api.wmpvp.com/api/csgo/home/user/forbid";
+  const timestamp = Math.floor(Date.now() / 1000);
+  const headers = {
+    "Host": "api.wmpvp.com",
+    "Accept": "*/*",
+    "appversion": "3.5.9",
+    "gameTypeStr": "2",
+    "Accept-Encoding": "gzip",
+    "Accept-Language": "zh-Hans-CN;q=1.0",
+    "platform": "ios",
+    "token": token,
+    "appTheme": "0",
+    "t": String(timestamp),
+    "User-Agent": "esport-app/3.5.9 (com.wmzq.esportapp; build:2; iOS 18.4.0) Alamofire/5.10.2",
+    "gameType": "2",
+    "Connection": "keep-alive",
+    "Content-Type": "application/json"
+  };
+
+  const payload = {
+    "mySteamId": 0,
+    "toSteamId": steamId64
+  };
+
+  console.log('[API] checkBan Request payload:', JSON.stringify(payload, null, 2));
+  try {
+    const response = await axios.post(url, payload, { 
+      headers: headers,
+      validateStatus: () => true // Accept any status code
+    });
+    return NextResponse.json(response.data);
+  } catch (error) {
+    console.error('[API] Error in checkBan:', error);
+    return NextResponse.json({ error: '获取封禁状态失败' }, { status: 500 });
+  }
+}
+
+// 获取ELO分数和比赛历史
+async function handleGetEloScore(steamId64: string, providedToken: string): Promise<NextResponse> {
+  console.log(`[API] Processing getEloScore action for SteamID64: ${steamId64}`);
+  
+  // 优先使用请求中提供的Token，如果没有则从数据库获取
+  let token = providedToken;
+  if (!token) {
+    const dbToken = await getTokenFromDatabase(steamId64);
+    if (!dbToken) {
+      console.warn('[API] Warning: No valid token found for getEloScore');
+      return NextResponse.json({ error: '需要登录或数据库中无有效Token' }, { status: 401 });
+    }
+    token = dbToken;
+  }
+
+  // 记录请求
+  addLog({
+    action: 'GET_ELO_SCORE',
+    details: `获取玩家ELO分数，Steam ID: ${steamId64}`,
+    ip: 'unknown'
+  });
+
+  const url = "https://api.wmpvp.com/api/csgo/home/match/list";
+  const timestamp = Math.floor(Date.now() / 1000);
+  const headers = {
+    "Host": "api.wmpvp.com",
+    "Accept": "*/*",
+    "appversion": "3.5.9",
+    "gameTypeStr": "2",
+    "Accept-Encoding": "br;q=1.0, gzip;q=0.9, deflate;q=0.8",
+    "Accept-Language": "zh-Hans-CN;q=1.0",
+    "platform": "ios",
+    "token": token,
+    "appTheme": "0",
+    "t": String(timestamp),
+    "User-Agent": "esport-app/3.5.9 (com.wmzq.esportapp; build:2; iOS 18.4.0) Alamofire/5.10.2",
+    "gameType": "2",
+    "Connection": "keep-alive",
+    "Content-Type": "application/json"
+  };
+
+  const payload = {
+    "pvpType": -1,
+    "mySteamId": 0,
+    "csgoSeasonId": "recent",
+    "page": 1,
+    "pageSize": 11,
+    "dataSource": 3,
+    "toSteamId": steamId64
+  };
+  
+  try {
+    const response = await axios.post(url, payload, { 
+      headers: headers,
+      validateStatus: () => true // Accept any status code
+    });
+    return NextResponse.json(response.data);
+  } catch (error) {
+    console.error('[API] Error in getEloScore:', error);
+    return NextResponse.json({ error: '获取ELO分数失败' }, { status: 500 });
+  }
 }
 
 // Login endpoint
@@ -14,43 +164,11 @@ export async function POST(request: NextRequest) {
   console.log('[API] Received POST request to /api/auth');
   try {
     const body = await request.json();
-    // 改回 steamId，但保留后续检查
     const { action, mobilePhone, securityCode, steamId } = body;
-    const token = request.headers.get('x-auth-token') || '';
+    const providedToken = request.headers.get('x-auth-token') || '';
+    const clientIp = request.headers.get('x-forwarded-for') || 'unknown';
     
-    console.log(`[API] Request Action: ${action}, Received ID: ${steamId} (Type: ${typeof steamId}), Token present: ${!!token}`);
-
-    let steamId64: string | null = null;
-
-    // Resolve identifier to steamId64 if needed for relevant actions
-    if (action === 'checkBan' || action === 'getEloScore') {
-      if (!steamId) {
-        console.error(`[API] Error: SteamID is required for ${action}`);
-        return NextResponse.json({ error: '需要提供 SteamID' }, { status: 400 });
-      }
-
-      if (isSteamID64(steamId)) {
-        console.log(`[API] Received ID ${steamId} is a SteamID64.`);
-        steamId64 = steamId;
-      } else {
-        // 理论上前端应该总是发送 64位ID 给这个路由
-        // 但以防万一，还是尝试转换
-        console.warn(`[API] Received ID ${steamId} is NOT a SteamID64, attempting conversion...`); 
-        try {
-          const conversionResult = await getSteamIdFromAlternativeApi(steamId);
-          if (conversionResult && conversionResult.steam_id) {
-            steamId64 = conversionResult.steam_id;
-            console.log(`[API] Successfully converted short ID ${steamId} to SteamID64 ${steamId64}`);
-          } else {
-            console.error(`[API] Failed to convert short ID ${steamId} to SteamID64. Conversion result:`, conversionResult);
-            return NextResponse.json({ error: '无法将用户ID转换为SteamID' }, { status: 404 });
-          }
-        } catch (conversionError) {
-          console.error(`[API] Error during short ID to SteamID64 conversion for ${steamId}:`, conversionError);
-          return NextResponse.json({ error: '转换用户ID时出错' }, { status: 500 });
-        }
-      }
-    }
+    console.log(`[API] Request Action: ${action}, Received ID: ${steamId} (Type: ${typeof steamId}), Token present: ${!!providedToken}`);
 
     // Login action
     if (action === 'login') {
@@ -66,7 +184,7 @@ export async function POST(request: NextRequest) {
       addLog({
         action: 'USER_LOGIN_ATTEMPT',
         details: `用户尝试登录，手机号: ${mobilePhone}`,
-        ip: request.headers.get('x-forwarded-for') || 'unknown'
+        ip: clientIp
       });
 
       const loginUrl = "https://passport.pwesports.cn/account/login";
@@ -85,189 +203,61 @@ export async function POST(request: NextRequest) {
         addLog({
           action: 'USER_LOGIN_SUCCESS',
           details: `用户登录成功，手机号: ${mobilePhone}`,
-          ip: request.headers.get('x-forwarded-for') || 'unknown'
+          ip: clientIp
         });
       } else {
         // 登录失败
         addLog({
           action: 'USER_LOGIN_FAILED',
           details: `用户登录失败，手机号: ${mobilePhone}, 原因: ${response.data?.description || '未知'}`,
-          ip: request.headers.get('x-forwarded-for') || 'unknown'
+          ip: clientIp
         });
       }
 
       return NextResponse.json(response.data);
     }
     
-    // Check ban status
-    if (action === 'checkBan') {
-      console.log(`[API] Processing checkBan action for SteamID64: ${steamId64}`);
-      if (!steamId64) { // Should be caught earlier, but double-check
-        console.error('[API] Error: Resolved SteamID64 is missing for checkBan');
-        return NextResponse.json({ error: '无法解析SteamID' }, { status: 500 });
+    // 处理需要Steam ID 的功能
+    if (action === 'checkBan' || action === 'getEloScore') {
+      if (!steamId) {
+        console.error(`[API] Error: SteamID is required for ${action}`);
+        return NextResponse.json({ error: '需要提供 SteamID' }, { status: 400 });
       }
-      if (!token) {
-        console.warn('[API] Warning: Token is required for checkBan');
-        return NextResponse.json({ error: '需要登录' }, { status: 401 });
-      }
-
-      // 记录请求
-      addLog({
-        action: 'CHECK_BAN_STATUS',
-        details: `检查玩家封禁状态，Steam ID: ${steamId64}`,
-        ip: request.headers.get('x-forwarded-for') || 'unknown'
-      });
-
-      const url = "https://api.wmpvp.com/api/csgo/home/user/forbid";
-      const timestamp = Math.floor(Date.now() / 1000);
-      const headers = {
-        "Host": "api.wmpvp.com",
-        "Accept": "*/*",
-        "appversion": "3.5.9",
-        "gameTypeStr": "2",
-        "Accept-Encoding": "gzip",
-        "Accept-Language": "zh-Hans-CN;q=1.0",
-        "platform": "ios",
-        "token": token,
-        "appTheme": "0",
-        "t": String(timestamp),
-        "User-Agent": "esport-app/3.5.9 (com.wmzq.esportapp; build:2; iOS 18.4.0) Alamofire/5.10.2",
-        "gameType": "2",
-        "Connection": "keep-alive",
-        "Content-Type": "application/json"
-      };
-
-      const payload = {
-        "mySteamId": 0,
-        "toSteamId": steamId64
-      };
-
-      console.log('[API] checkBan Request payload:', JSON.stringify(payload, null, 2));
-      const response = await axios.post(url, payload, { 
-        headers: headers,
-        validateStatus: () => true // Accept any status code
-      });
-
-      return NextResponse.json(response.data);
-    }
-
-    // Get ELO score and match history
-    if (action === 'getEloScore') {
-      console.log(`[API] Processing getEloScore action for SteamID64: ${steamId64}`);
-      if (!steamId64) { // Should be caught earlier, but double-check
-        console.error('[API] Error: Resolved SteamID64 is missing for getEloScore');
-        return NextResponse.json({ error: '无法解析SteamID' }, { status: 500 });
-      }
-      if (!token) {
-        console.warn('[API] Warning: Token is required for getEloScore');
-        return NextResponse.json({ error: '需要登录' }, { status: 401 });
-      }
-
-      // 记录请求
-      addLog({
-        action: 'GET_ELO_SCORE',
-        details: `获取玩家ELO分数，Steam ID: ${steamId64}`,
-        ip: request.headers.get('x-forwarded-for') || 'unknown'
-      });
-
-      const url = "https://api.wmpvp.com/api/csgo/home/match/list";
-      const timestamp = Math.floor(Date.now() / 1000);
-      const headers = {
-        "Host": "api.wmpvp.com",
-        "Accept": "*/*",
-        "appversion": "3.5.9",
-        "gameTypeStr": "2",
-        "Accept-Encoding": "br;q=1.0, gzip;q=0.9, deflate;q=0.8",
-        "Accept-Language": "zh-Hans-CN;q=1.0",
-        "platform": "ios",
-        "token": token,
-        "appTheme": "0",
-        "t": String(timestamp),
-        "User-Agent": "esport-app/3.5.9 (com.wmzq.esportapp; build:2; iOS 18.4.0) Alamofire/5.10.2",
-        "gameType": "2",
-        "Connection": "keep-alive",
-        "Content-Type": "application/json"
-      };
-
-      const payload = {
-        "pvpType": -1,
-        "mySteamId": 0,
-        "csgoSeasonId": "recent",
-        "page": 1,
-        "pageSize": 11,
-        "dataSource": 3,
-        "toSteamId": steamId64
-      };
-
-      try {
-        console.log(`[API] 发送请求到 ${url} 获取玩家 ${steamId64} 的ELO分数`);
-        console.log('[API] 请求头:', JSON.stringify(headers, null, 2));
-        console.log('[API] 请求体:', JSON.stringify(payload, null, 2));
-
-        const response = await axios.post(url, payload, { 
-          headers: headers,
-          validateStatus: () => true // Accept any status code
-        });
-
-        console.log(`[API] 收到响应状态码: ${response.status}`);
-        console.log('[API] 收到响应数据:', JSON.stringify(response.data, null, 2));
-        
-        // 检查响应中是否有数据
-        if (response.data && response.data.statusCode === 0) {
-          if (response.data.data && response.data.data.matchList && response.data.data.matchList.length > 0) {
-            // 从第一条比赛记录获取pvpScore
-            const firstMatch = response.data.data.matchList[0];
-            const pvpScore = firstMatch.pvpScore;
-            
-            console.log(`[API] 成功获取比赛数据，第一条记录的ELO分数: ${pvpScore}`);
-            
-            // 在响应数据中添加pvpScore
-            response.data.data.pvpScore = pvpScore;
-            
-            console.log(`[API] 将ELO分数 ${pvpScore} 添加到响应数据中`);
+      
+      // 解析Steam ID
+      let steamId64: string;
+      if (isSteamID64(steamId)) {
+        console.log(`[API] Received ID ${steamId} is a SteamID64.`);
+        steamId64 = steamId;
+      } else {
+        console.warn(`[API] Received ID ${steamId} is NOT a SteamID64, attempting conversion...`); 
+        try {
+          const conversionResult = await getSteamIdFromAlternativeApi(steamId);
+          if (conversionResult && conversionResult.steam_id) {
+            steamId64 = conversionResult.steam_id;
+            console.log(`[API] Successfully converted short ID ${steamId} to SteamID64 ${steamId64}`);
           } else {
-            console.log('[API] 未找到比赛记录数据，matchList为空');
+            console.error(`[API] Failed to convert short ID ${steamId} to SteamID64. Conversion result:`, conversionResult);
+            return NextResponse.json({ error: '无法将用户ID转换为SteamID' }, { status: 404 });
           }
-        } else {
-          console.error('[API] API响应错误或statusCode不为0:', response.data);
+        } catch (conversionError) {
+          console.error(`[API] Error during short ID to SteamID64 conversion for ${steamId}:`, conversionError);
+          return NextResponse.json({ error: '转换用户ID时出错' }, { status: 500 });
         }
-
-        return NextResponse.json(response.data);
-      } catch (error) {
-        console.error('[API] 获取ELO分数时发生网络或请求错误:', error);
-        
-        // 记录错误
-        addLog({
-          action: 'GET_ELO_SCORE_ERROR',
-          details: `获取ELO分数失败，Steam ID: ${steamId64}`,
-          ip: request.headers.get('x-forwarded-for') || 'unknown'
-        });
-        
-        return NextResponse.json(
-          { error: '获取ELO分数失败' },
-          { status: 500 }
-        );
+      }
+      
+      // 执行对应的功能处理
+      if (action === 'checkBan') {
+        return handleCheckBan(steamId64, providedToken);
+      } else if (action === 'getEloScore') {
+        return handleGetEloScore(steamId64, providedToken);
       }
     }
-
-    console.warn(`[API] 未知的操作: ${action}`);
-    return NextResponse.json(
-      { error: '未知的操作' },
-      { status: 400 }
-    );
+    
+    // 未知操作
+    return NextResponse.json({ error: '未知操作类型' }, { status: 400 });
   } catch (error) {
-    console.error('[API] 处理请求时发生内部错误:', error);
-    
-    // 记录错误
-    addLog({
-      action: 'API_ERROR',
-      details: `处理请求时发生内部错误: ${(error as Error).message || '未知错误'}`,
-      ip: request.headers.get('x-forwarded-for') || 'unknown'
-    });
-    
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      { status: 500 }
-    );
+    console.error('[API] 处理请求出错:', error);
+    return NextResponse.json({ error: '服务器内部错误' }, { status: 500 });
   }
 } 

@@ -8,14 +8,14 @@ export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
     const userId = url.searchParams.get('userId');
-
+    
     if (!userId) {
       return NextResponse.json(
         { success: false, message: '请提供用户ID' },
         { status: 400 }
       );
     }
-
+    
     // 记录请求
     addLog({
       action: 'LOOKUP_STEAM_ID',
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
 
     // 添加调试日志
     console.log(`[API] 正在查询用户ID: ${userId} 的Steam ID`);
-
+    
     // 使用完美世界API获取Steam ID
     const result = await getPerfectWorldSteamId(userId);
     console.log(`[API] 完美世界API 返回结果:`, result);
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
         const generatedSteamId = `76561199${userId.padStart(9, '0')}`;
         console.log(`[API] 未找到Steam ID，生成备用ID: ${generatedSteamId}`);
         
-        return NextResponse.json({
+      return NextResponse.json({
           success: true,
           userId: userId,
           steamId: generatedSteamId,
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
       console.log(`[API] 未找到对应的Steam ID，userId: ${userId}`);
       return NextResponse.json(
         { 
-          success: false, 
+        success: false,
           message: '未找到对应的Steam ID',
           debugInfo: {
             userId: userId,
@@ -70,9 +70,9 @@ export async function GET(request: NextRequest) {
     console.error('查询Steam ID失败:', error);
     return NextResponse.json(
       { 
-        success: false, 
-        message: '查询Steam ID时发生错误',
-        error: error instanceof Error ? error.message : String(error)
+      success: false,
+      message: '查询Steam ID时发生错误',
+      error: error instanceof Error ? error.message : String(error)
       },
       { status: 500 }
     );
