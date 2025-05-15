@@ -126,19 +126,35 @@ export default function AccountsPage() {
     
     setIsFetchingSteamId(true);
     try {
-      // 这里应该调用您的API来获取Steam ID
-      // 示例代码，需要替换为实际的API调用
+      toast.loading('正在获取Steam ID...', { id: 'steamIdFetch' });
+      
+      // 调用API获取Steam ID
       const response = await fetch(`/api/steam/lookup?userId=${encodeURIComponent(userId)}`);
       
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.steamId) {
           setFormData(prev => ({ ...prev, steamId: data.steamId }));
-          toast.success('已自动获取Steam ID');
+          toast.success('已自动获取Steam ID', { id: 'steamIdFetch' });
+          
+          // 高亮显示获取到的Steam ID字段
+          const steamIdField = document.getElementById('steamId');
+          if (steamIdField) {
+            steamIdField.classList.add('bg-green-50', 'border-green-300');
+            setTimeout(() => {
+              steamIdField.classList.remove('bg-green-50', 'border-green-300');
+            }, 2000);
+          }
+        } else {
+          toast.error(data.message || '未找到对应的Steam ID', { id: 'steamIdFetch' });
         }
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.message || '获取Steam ID失败', { id: 'steamIdFetch' });
       }
     } catch (error) {
       console.error('获取Steam ID失败:', error);
+      toast.error('获取Steam ID时出错', { id: 'steamIdFetch' });
     } finally {
       setIsFetchingSteamId(false);
     }
@@ -460,15 +476,23 @@ export default function AccountsPage() {
                     <label htmlFor="userId" className="block text-sm font-medium text-gray-700 mb-1">
                       User ID
                     </label>
-                    <input
-                      type="text"
-                      id="userId"
-                      name="userId"
-                      value={formData.userId}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      placeholder="请输入User ID"
-                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        id="userId"
+                        name="userId"
+                        value={formData.userId}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                        placeholder="请输入User ID"
+                      />
+                      {isFetchingSteamId && (
+                        <div className="absolute right-3 top-2">
+                          <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-blue-500"></div>
+                        </div>
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">输入用户ID后会自动获取Steam ID</p>
                   </div>
                   
                   <div>
@@ -482,7 +506,7 @@ export default function AccountsPage() {
                       value={formData.steamId}
                       onChange={handleChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      placeholder="请输入Steam ID"
+                      placeholder="请输入Steam ID或通过User ID自动获取"
                     />
                   </div>
                   
