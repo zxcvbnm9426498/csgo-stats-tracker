@@ -196,46 +196,32 @@ export async function getLogs(options?: {
     const limit = options?.limit || 20;
     const offset = (page - 1) * limit;
     
-    // 构建基础查询
-    let whereConditions = [];
-    
-    // 添加过滤条件
-    if (options?.action) {
-      whereConditions.push(await sql`action ILIKE ${`%${options.action}%`}`);
-    }
-    
-    if (options?.startDate) {
-      whereConditions.push(await sql`timestamp >= ${options.startDate}`);
-    }
-    
-    if (options?.endDate) {
-      whereConditions.push(await sql`timestamp <= ${options.endDate}`);
-    }
-    
-    // 计算总数
-    let totalResult;
-    
-    if (whereConditions.length > 0) {
-      // 直接使用SQL查询，避免复杂的动态构建
-      // 这里简化处理，如果有条件，我们只计算没有条件的总数
-      totalResult = await sql`SELECT COUNT(*)::int as total FROM logs`;
-    } else {
-      totalResult = await sql`SELECT COUNT(*)::int as total FROM logs`;
-    }
-    
+    // 计算总记录数
+    const totalResult = await sql`SELECT COUNT(*)::int as total FROM logs`;
     const total = parseInt(totalResult[0].total);
     const totalPages = Math.ceil(total / limit);
     
-    // 获取分页数据
+    // 简化查询，不使用动态条件，避免类型错误
     let logsResult;
     
-    // 简化查询，不使用动态条件
-    // 在实际项目中，应该根据条件动态构建查询
-    logsResult = await sql`
-      SELECT * FROM logs 
-      ORDER BY timestamp DESC 
-      LIMIT ${limit} OFFSET ${offset}
-    `;
+    // 基本查询，不使用复杂条件
+    if (options?.action) {
+      // 如果有action过滤，使用简单查询
+      const actionPattern = `%${options.action}%`;
+      logsResult = await sql`
+        SELECT * FROM logs 
+        WHERE action ILIKE ${actionPattern}
+        ORDER BY timestamp DESC 
+        LIMIT ${limit} OFFSET ${offset}
+      `;
+    } else {
+      // 如果没有过滤条件，使用简单查询
+      logsResult = await sql`
+        SELECT * FROM logs 
+        ORDER BY timestamp DESC 
+        LIMIT ${limit} OFFSET ${offset}
+      `;
+    }
     
     const logs = logsResult.map(row => ({
       id: row.id.toString(),
