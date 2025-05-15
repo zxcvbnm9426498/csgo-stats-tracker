@@ -133,7 +133,27 @@ export default function AccountsPage() {
       const data = await response.json();
       
       if (response.ok && data.success && data.steamId) {
-        setFormData(prev => ({ ...prev, steamId: data.steamId }));
+        // 更新SteamID
+        setFormData(prev => ({ 
+          ...prev, 
+          steamId: data.steamId,
+          // 如果API返回了nickname且用户名为空，则自动填充用户名
+          username: data.nickname && !prev.username.trim() ? data.nickname : prev.username 
+        }));
+        
+        // 如果用户名被自动填充，添加一个额外的提示
+        if (data.nickname && !formData.username.trim()) {
+          toast.success(`获取到用户名: ${data.nickname}`, { duration: 3000 });
+          
+          // 高亮显示自动填充的用户名字段
+          const usernameField = document.getElementById('username');
+          if (usernameField) {
+            usernameField.classList.add('bg-green-50', 'border-green-300');
+            setTimeout(() => {
+              usernameField.classList.remove('bg-green-50', 'border-green-300');
+            }, 2000);
+          }
+        }
         
         // 如果是生成的备用ID，显示不同的提示
         if (data.note && data.note.includes('备用ID')) {
