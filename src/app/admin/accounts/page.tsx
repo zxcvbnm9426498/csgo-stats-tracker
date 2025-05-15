@@ -8,7 +8,7 @@ import AdminAuthCheck from '@/app/components/admin/AdminAuthCheck';
 interface Account {
   id: string;
   username: string;
-  phone: string;
+  userId?: string;
   steamId?: string;
   status: 'active' | 'suspended' | 'banned';
   createdAt: string;
@@ -25,10 +25,12 @@ export default function AccountsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  const [isFetchingSteamId, setIsFetchingSteamId] = useState(false);
   
   // 新账号表单数据
   const [formData, setFormData] = useState({
     username: '',
+    userId: '',
     steamId: ''
   });
 
@@ -111,6 +113,35 @@ export default function AccountsPage() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+
+    // 如果输入了用户ID且没有输入Steam ID，尝试获取Steam ID
+    if (name === 'userId' && value && !formData.steamId) {
+      fetchSteamIdByUserId(value);
+    }
+  };
+
+  // 通过用户ID获取Steam ID
+  const fetchSteamIdByUserId = async (userId: string) => {
+    if (!userId || isFetchingSteamId) return;
+    
+    setIsFetchingSteamId(true);
+    try {
+      // 这里应该调用您的API来获取Steam ID
+      // 示例代码，需要替换为实际的API调用
+      const response = await fetch(`/api/steam/lookup?userId=${encodeURIComponent(userId)}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.steamId) {
+          setFormData(prev => ({ ...prev, steamId: data.steamId }));
+          toast.success('已自动获取Steam ID');
+        }
+      }
+    } catch (error) {
+      console.error('获取Steam ID失败:', error);
+    } finally {
+      setIsFetchingSteamId(false);
+    }
   };
 
   // 打开创建账号模态框
@@ -118,6 +149,7 @@ export default function AccountsPage() {
     setEditingAccount(null);
     setFormData({
       username: '',
+      userId: '',
       steamId: ''
     });
     setShowModal(true);
@@ -128,6 +160,7 @@ export default function AccountsPage() {
     setEditingAccount(account);
     setFormData({
       username: account.username,
+      userId: account.userId || '',
       steamId: account.steamId || ''
     });
     setShowModal(true);
@@ -135,9 +168,9 @@ export default function AccountsPage() {
 
   // 验证表单输入
   const validateForm = () => {
-    // 检查用户名和Steam ID是否至少填写了一个
-    if (!formData.username.trim() && !formData.steamId.trim()) {
-      toast.error('用户名和Steam ID至少填写一项');
+    // 检查用户名和Steam ID/用户ID是否至少填写了一项
+    if (!formData.username.trim() && !formData.steamId.trim() && !formData.userId.trim()) {
+      toast.error('用户名、用户ID和Steam ID至少填写一项');
       return false;
     }
 
@@ -191,7 +224,9 @@ export default function AccountsPage() {
           const errorField = document.getElementById(
             result.message?.includes('用户名') || result.error?.includes('用户名') 
               ? 'username' 
-              : 'steamId'
+              : result.message?.includes('Steam ID') || result.error?.includes('Steam ID')
+                ? 'steamId'
+                : 'userId'
           );
           
           if (errorField) {
@@ -304,8 +339,8 @@ export default function AccountsPage() {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">用户名</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">手机号</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Steam ID</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">用户ID</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">STEAM ID</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">创建时间</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
@@ -331,7 +366,7 @@ export default function AccountsPage() {
                   <tr key={account.id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.id}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{account.username}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.phone}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.userId || '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.steamId || '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -422,6 +457,21 @@ export default function AccountsPage() {
                   </div>
                   
                   <div>
+                    <label htmlFor="userId" className="block text-sm font-medium text-gray-700 mb-1">
+                      User ID
+                    </label>
+                    <input
+                      type="text"
+                      id="userId"
+                      name="userId"
+                      value={formData.userId}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      placeholder="请输入User ID"
+                    />
+                  </div>
+                  
+                  <div>
                     <label htmlFor="steamId" className="block text-sm font-medium text-gray-700 mb-1">
                       Steam ID
                     </label>
@@ -437,7 +487,7 @@ export default function AccountsPage() {
                   </div>
                   
                   <div className="text-sm text-gray-500 italic">
-                    注: 用户名和Steam ID至少填写一项
+                    注: 用户名、User ID和Steam ID至少填写一项
                   </div>
                 </div>
                 

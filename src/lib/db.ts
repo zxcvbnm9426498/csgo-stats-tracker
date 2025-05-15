@@ -76,7 +76,7 @@ export async function initDatabase() {
       CREATE TABLE IF NOT EXISTS accounts (
         id SERIAL PRIMARY KEY,
         username VARCHAR(100) NOT NULL,
-        phone VARCHAR(20) NOT NULL,
+        "userId" VARCHAR(50),
         "steamId" VARCHAR(50),
         status VARCHAR(20) DEFAULT 'active',
         "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,

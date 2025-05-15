@@ -129,6 +129,8 @@ export async function GET(request: NextRequest) {
 // 创建新账号
 export async function POST(request: NextRequest) {
   try {
+    console.log('处理创建账号请求...');
+    
     // 验证管理员身份
     if (!(await isAuthenticated(request))) {
       return NextResponse.json({
@@ -139,13 +141,15 @@ export async function POST(request: NextRequest) {
     
     // 获取请求数据
     const body = await request.json();
-    const { username, steamId } = body;
+    const { username, userId, steamId } = body;
     
-    // 简化验证逻辑：用户名和Steam ID至少有一个
-    if (!username && !steamId) {
+    console.log('创建账号请求数据:', { username, userId, steamId });
+    
+    // 简化验证逻辑：用户名、用户ID和Steam ID至少有一个
+    if (!username && !userId && !steamId) {
       return NextResponse.json({
         success: false,
-        message: '用户名和Steam ID至少填写一项'
+        message: '用户名、用户ID和Steam ID至少填写一项'
       }, { status: 400 });
     }
     
@@ -153,7 +157,7 @@ export async function POST(request: NextRequest) {
     try {
       const account = await addAccount({
         username: username || `用户_${Date.now().toString().slice(-6)}`, // 如果没有用户名，使用时间戳后6位作为默认名称
-        phone: '', // 保留空字段以兼容数据库结构
+        userId,
         steamId,
         status: 'active' // 默认为活跃状态
       });
@@ -161,7 +165,7 @@ export async function POST(request: NextRequest) {
       // 记录操作日志
       await addLog({
         action: 'CREATE_ACCOUNT',
-        details: `创建账号: ${username || steamId}`,
+        details: `创建账号: ${username || userId || steamId}`,
         ip: request.headers.get('x-forwarded-for') || 'unknown'
       });
       
@@ -201,7 +205,9 @@ export async function PUT(request: NextRequest) {
     
     // 获取请求数据
     const body = await request.json();
-    const { id, username, steamId } = body;
+    const { id, username, userId, steamId } = body;
+    
+    console.log('更新账号请求数据:', { id, username, userId, steamId });
     
     if (!id) {
       return NextResponse.json({
@@ -210,11 +216,11 @@ export async function PUT(request: NextRequest) {
       }, { status: 400 });
     }
     
-    // 简化验证逻辑：用户名和Steam ID至少有一个
-    if (!username && !steamId) {
+    // 简化验证逻辑：用户名、用户ID和Steam ID至少有一个
+    if (!username && !userId && !steamId) {
       return NextResponse.json({
         success: false,
-        message: '用户名和Steam ID至少填写一项'
+        message: '用户名、用户ID和Steam ID至少填写一项'
       }, { status: 400 });
     }
     
@@ -222,6 +228,7 @@ export async function PUT(request: NextRequest) {
     try {
       const account = await updateAccount(id, {
         username,
+        userId,
         steamId
       });
       

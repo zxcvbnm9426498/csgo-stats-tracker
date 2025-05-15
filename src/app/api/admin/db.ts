@@ -4,7 +4,7 @@ import { sql } from '@/lib/db';
 export interface Account {
   id: string;
   username: string;
-  phone: string;
+  userId?: string;
   steamId?: string;
   status: 'active' | 'suspended' | 'banned';
   createdAt: string;
@@ -53,7 +53,7 @@ export async function getAccounts(): Promise<Account[]> {
         return {
           id: row.id?.toString() || '',
           username: row.username || '',
-          phone: row.phone || '',
+          userId: row.userid || row.userId || row["userId"] || undefined,
           // 注意列名可能是小写的，PostgreSQL 通常会将列名转为小写除非使用引号
           steamId: (row.steamid || row.steamId || row["steamId"] || null) || undefined,
           status: (row.status || 'active') as 'active' | 'suspended' | 'banned',
@@ -70,7 +70,7 @@ export async function getAccounts(): Promise<Account[]> {
         return {
           id: row.id?.toString() || 'unknown',
           username: row.username || 'unknown',
-          phone: row.phone || '',
+          userId: row.userid || row.userId || row["userId"] || undefined,
           status: 'active' as 'active',
           createdAt: new Date().toISOString()
         };
@@ -118,41 +118,82 @@ export async function getAccounts(): Promise<Account[]> {
   }
 }
 
-// 检查账号是否存在
-export async function checkAccountExists(criteria: { username?: string; steamId?: string }): Promise<boolean> {
+// 通过用户ID获取Steam ID
+export async function getSteamIdByUserId(userId: string): Promise<string | null> {
   try {
-    const { username, steamId } = criteria;
+    console.log(`尝试通过用户ID获取Steam ID: ${userId}`);
+    
+    // 调用Steam API获取用户信息
+    // 这里使用模拟的API调用，实际实现可能需要根据您的业务需求进行调整
+    try {
+      // 示例：尝试从某个API获取用户的Steam ID
+      const response = await fetch(`https://api.example.com/users/${userId}/steam`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.steamId) {
+          console.log(`成功获取Steam ID: ${data.steamId}`);
+          return data.steamId;
+        }
+      }
+      
+      console.log('没有找到对应的Steam ID');
+      return null;
+    } catch (apiError) {
+      console.error('API调用失败:', apiError);
+      return null;
+    }
+  } catch (error) {
+    console.error('获取Steam ID失败:', error);
+    return null;
+  }
+}
+
+// 检查账号是否存在
+export async function checkAccountExists(criteria: { username?: string; userId?: string; steamId?: string }): Promise<boolean> {
+  try {
+    const { username, userId, steamId } = criteria;
     
     // 至少需要一个查询条件
-    if (!username && !steamId) {
+    if (!username && !userId && !steamId) {
       return false;
     }
     
     let result;
     
-    // 根据提供的条件构建查询
-    if (username && steamId) {
-      // 如果同时提供了用户名和steamId，检查两者是否都与现有账号匹配
-      result = await sql`
-        SELECT COUNT(*) as count FROM accounts 
-        WHERE username = ${username} OR "steamId" = ${steamId}
-      `;
-    } else if (username) {
-      // 仅按用户名查询
-      result = await sql`
-        SELECT COUNT(*) as count FROM accounts 
-        WHERE username = ${username}
-      `;
-    } else {
-      // 仅按steamId查询
+    // 主要检查Steam ID的唯一性
+    if (steamId) {
       result = await sql`
         SELECT COUNT(*) as count FROM accounts 
         WHERE "steamId" = ${steamId}
       `;
+      
+      const steamIdCount = parseInt(result[0].count);
+      if (steamIdCount > 0) {
+        console.log(`发现重复的Steam ID: ${steamId}`);
+        return true;
+      }
     }
     
-    const count = parseInt(result[0].count);
-    return count > 0;
+    // 如果还需要检查用户名或用户ID
+    if (username || userId) {
+      const query = username && userId
+        ? sql`SELECT COUNT(*) as count FROM accounts WHERE username = ${username} OR "userId" = ${userId}`
+        : username
+          ? sql`SELECT COUNT(*) as count FROM accounts WHERE username = ${username}`
+          : sql`SELECT COUNT(*) as count FROM accounts WHERE "userId" = ${userId}`;
+      
+      result = await query;
+      const count = parseInt(result[0].count);
+      return count > 0;
+    }
+    
+    return false;
   } catch (error) {
     console.error('检查账号是否存在失败:', error);
     // 出错时返回false，避免阻止创建账号
@@ -162,19 +203,34 @@ export async function checkAccountExists(criteria: { username?: string; steamId?
 
 // 添加账号
 export async function addAccount(accountData: Omit<Account, 'id' | 'createdAt'>): Promise<Account> {
-  const { username, phone, steamId, status } = accountData;
+  const { username, userId, steamId, status } = accountData;
   
   try {
-    // 检查账号是否已存在
-    if (await checkAccountExists({ username, steamId })) {
-      throw new Error('账号已存在: 相同的用户名或Steam ID已被使用');
+    // 如果提供了用户ID但没有提供Steam ID，尝试获取Steam ID
+    let finalSteamId = steamId;
+    if (userId && !steamId) {
+      console.log(`尝试通过用户ID获取Steam ID: ${userId}`);
+      const foundSteamId = await getSteamIdByUserId(userId);
+      if (foundSteamId) {
+        console.log(`成功获取到Steam ID: ${foundSteamId}`);
+        finalSteamId = foundSteamId;
+      }
+    }
+    
+    // 检查账号是否已存在，特别关注Steam ID的唯一性
+    if (finalSteamId && await checkAccountExists({ steamId: finalSteamId })) {
+      throw new Error('账号已存在: 相同的Steam ID已被使用');
+    }
+    
+    if (await checkAccountExists({ username, userId })) {
+      throw new Error('账号已存在: 相同的用户名或用户ID已被使用');
     }
     
     // 明确使用双引号包裹列名，按照PostgreSQL标准
     const result = await sql`
-      INSERT INTO accounts (username, phone, "steamId", status, "createdAt")
-      VALUES (${username}, ${phone || ''}, ${steamId || null}, ${status || 'active'}, now())
-      RETURNING id, username, phone, "steamId" as steamid, status, "createdAt" as createdat
+      INSERT INTO accounts (username, "userId", "steamId", status, "createdAt")
+      VALUES (${username}, ${userId || null}, ${finalSteamId || null}, ${status || 'active'}, now())
+      RETURNING id, username, "userId" as userid, "steamId" as steamid, status, "createdAt" as createdat
     `;
     
     if (!result || result.length === 0) {
@@ -185,7 +241,7 @@ export async function addAccount(accountData: Omit<Account, 'id' | 'createdAt'>)
     return {
       id: row.id.toString(),
       username: row.username,
-      phone: row.phone,
+      userId: row.userid || undefined,
       steamId: row.steamid || undefined,
       status: row.status as 'active' | 'suspended' | 'banned',
       createdAt: row.createdat ? new Date(row.createdat).toISOString() : new Date().toISOString()
@@ -202,15 +258,15 @@ export async function updateAccount(
   data: Partial<Omit<Account, 'id' | 'createdAt'>>
 ): Promise<Account | null> {
   try {
-    const { username, phone, steamId, status } = data;
+    const { username, userId, steamId, status } = data;
     
     // 检查是否有更新字段
-    if (!username && !phone && steamId === undefined && status === undefined) {
+    if (!username && userId === undefined && steamId === undefined && status === undefined) {
       return null;
     }
 
-    // 如果要更新用户名或steamId，先检查是否已存在
-    if (username || steamId !== undefined) {
+    // 如果要更新用户名、用户ID或steamId，先检查是否已存在
+    if (username || userId !== undefined || steamId !== undefined) {
       // 获取当前账号信息，排除在重复检查中
       const currentAccount = await sql`SELECT * FROM accounts WHERE id = ${id}`;
       
@@ -231,6 +287,17 @@ export async function updateAccount(
         if (parseInt(usernameCheck[0].count) > 0) {
           hasDuplicate = true;
           duplicateField = '用户名';
+        }
+      }
+      
+      if (userId !== undefined && userId !== null) {
+        const userIdCheck = await sql`
+          SELECT COUNT(*) as count FROM accounts 
+          WHERE "userId" = ${userId} AND id != ${id}
+        `;
+        if (parseInt(userIdCheck[0].count) > 0) {
+          hasDuplicate = true;
+          duplicateField = duplicateField ? duplicateField + '和用户ID' : '用户ID';
         }
       }
       
@@ -260,9 +327,9 @@ export async function updateAccount(
       `;
     }
     
-    if (phone) {
+    if (userId !== undefined) {
       result = await sql`
-        UPDATE accounts SET phone = ${phone}
+        UPDATE accounts SET "userId" = ${userId || null}
         WHERE id = ${id} RETURNING *
       `;
     }
@@ -295,7 +362,7 @@ export async function updateAccount(
     return {
       id: row.id.toString(),
       username: row.username,
-      phone: row.phone,
+      userId: row.userid || undefined,
       steamId: row.steamid || undefined,
       status: row.status as 'active' | 'suspended' | 'banned',
       createdAt: new Date(row.createdat).toISOString(),
