@@ -58,8 +58,8 @@ export default function TokenManagerPage() {
       const accountInfo = loginResult.loginResult.accountInfo;
       const response = await axios.post('/api/admin/save-token', {
         userId: accountInfo.userId,
-        mobilePhone: accountInfo.mobilePhone,
-        token: accountInfo.token
+        phone: accountInfo.mobilePhone,
+        authToken: accountInfo.token
       });
 
       if (response.data && response.data.success) {

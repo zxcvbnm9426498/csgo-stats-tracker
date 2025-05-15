@@ -21,12 +21,12 @@ export async function POST(request: NextRequest) {
 
     // 解析请求体
     const body = await request.json();
-    const { userId, mobilePhone, token } = body;
+    const { userId, phone, authToken } = body;
 
-    if (!token) {
+    if (!authToken) {
       return NextResponse.json({
         success: false,
-        message: '缺少必要参数：令牌'
+        message: '缺少必要参数：authToken'
       }, { status: 400 });
     }
 
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
       INSERT INTO api_tokens (
         id, phone, token, token_expiry, source, created_at, status
       ) VALUES (
-        ${id}, ${mobilePhone || null}, ${token}, ${expiryDate.toISOString()}, 'front_login', 
+        ${id}, ${phone || null}, ${authToken}, ${expiryDate.toISOString()}, 'front_login', 
         CURRENT_TIMESTAMP, 'active'
       )
     `;
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     addLog({
       userId: userId?.toString(),
       action: 'SAVE_API_TOKEN',
-      details: `保存前台登录令牌，手机号: ${mobilePhone || '未知'}`,
+      details: `保存前台登录令牌，手机号: ${phone || '未知'}`,
       ip: request.headers.get('x-forwarded-for') || 'unknown'
     });
 
