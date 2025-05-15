@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
-import crypto from 'crypto';
-
-// 密码加盐哈希函数
-function hashPassword(password: string, salt = 'csgo-stats-tracker-salt'): string {
-  return crypto.createHash('sha256').update(password + salt).digest('hex');
-}
+import { hashPassword } from '@/lib/edge-config';
 
 // 重置管理员密码API
 export async function POST(request: NextRequest) {
