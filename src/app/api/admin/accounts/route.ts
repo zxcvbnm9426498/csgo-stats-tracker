@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
       const searchLower = search.toLowerCase();
       filteredAccounts = filteredAccounts.filter(acc => 
         acc.username.toLowerCase().includes(searchLower) ||
-        acc.phone.toLowerCase().includes(searchLower) ||
+        (acc.userId && acc.userId.toLowerCase().includes(searchLower)) ||
         (acc.steamId && acc.steamId.toLowerCase().includes(searchLower))
       );
       console.log(`按搜索过滤后剩余 ${filteredAccounts.length} 个账号`);
