@@ -1,5 +1,7 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import axios from 'axios';
+import { createAuthConfig } from '@/utils/api-token';
 
 // 类型定义
 interface Weapon {
@@ -110,6 +112,32 @@ const formatTimestamp = (timestamp: number | null): string => {
 
 const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false, onViewDetails }) => {
   const router = useRouter();
+  const [eloScore, setEloScore] = useState<number | null>(null);
+  const [loadingElo, setLoadingElo] = useState(false);
+  
+  // 获取ELO分数
+  useEffect(() => {
+    const fetchEloScore = async () => {
+      if (!data.playerInfo?.steamId64Str) return;
+      
+      setLoadingElo(true);
+      try {
+        // 使用API令牌获取ELO分数
+        const authConfig = await createAuthConfig();
+        const response = await axios.get(`/api/elo/player?steamId=${data.playerInfo.steamId64Str}`, authConfig);
+        
+        if (response.data && response.data.success && response.data.data) {
+          setEloScore(response.data.data.elo);
+        }
+      } catch (error) {
+        console.error('获取ELO分数失败:', error);
+      } finally {
+        setLoadingElo(false);
+      }
+    };
+    
+    fetchEloScore();
+  }, [data.playerInfo?.steamId64Str]);
   
   // 导航到登录页面
   const navigateToLogin = useCallback(() => {
@@ -197,7 +225,11 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false,
               <p className="font-medium text-blue-600">
                 {(data.playerStats?.data?.pvpScore !== null && data.playerStats?.data?.pvpScore !== undefined)
                   ? `${data.playerStats.data.pvpScore}` 
-                  : isLoggedIn ? '加载中...' : '登录后可见'}
+                  : eloScore 
+                    ? `${eloScore}` 
+                    : loadingElo 
+                      ? '加载中...' 
+                      : '获取中...'}
               </p>
               {data.playerStats?.data?.matchList && data.playerStats.data.matchList.length > 0 && (
                 <p className="text-xs text-gray-500 mt-1">
