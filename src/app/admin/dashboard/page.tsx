@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import AdminAuthCheck from '@/app/components/admin/AdminAuthCheck';
+import FixDatabaseButton from '@/app/components/admin/FixDatabaseButton';
 
 interface Stats {
   totalAccounts: number;
@@ -211,6 +212,22 @@ export default function DashboardPage() {
           >
             查看所有日志 →
           </button>
+        </div>
+
+        {/* 系统维护工具 */}
+        <div className="mt-8">
+          <h2 className="text-xl font-bold mb-4">系统维护</h2>
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <h3 className="text-lg font-medium mb-2">数据库维护</h3>
+                <p className="text-gray-500 mb-4">
+                  修复数据库结构，解决字段不匹配的问题
+                </p>
+                <FixDatabaseButton />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </AdminAuthCheck>

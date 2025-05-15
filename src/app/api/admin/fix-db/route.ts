@@ -45,6 +45,10 @@ export async function GET(request: NextRequest) {
         success: true,
         message: '成功创建accounts表',
         changes: ['创建了accounts表']
+      }, {
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8'
+        }
       });
     }
     
@@ -102,6 +106,10 @@ export async function GET(request: NextRequest) {
         success: true,
         message: '数据库结构已经正确，无需修改',
         changes: []
+      }, {
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8'
+        }
       });
     }
     
@@ -110,6 +118,10 @@ export async function GET(request: NextRequest) {
       success: true,
       message: '数据库修复完成',
       changes
+    }, {
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8'
+      }
     });
     
   } catch (error) {
@@ -118,6 +130,11 @@ export async function GET(request: NextRequest) {
       success: false,
       message: '修复数据库结构失败',
       error: error instanceof Error ? error.message : String(error)
-    }, { status: 500 });
+    }, { 
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8'
+      }
+    });
   }
 } 
