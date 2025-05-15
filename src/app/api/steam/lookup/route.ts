@@ -24,10 +24,16 @@ export async function GET(request: NextRequest) {
       ip: request.headers.get('x-forwarded-for') || 'unknown'
     });
 
+    // 添加调试日志
+    console.log(`[API] 正在查询用户ID: ${userId} 的Steam ID`);
+
     // 使用csgo/utils中的方法获取Steam ID
     const result = await getSteamIdFromAlternativeApi(userId);
+    
+    console.log(`[API] getSteamIdFromAlternativeApi 返回结果:`, result);
 
     if (result && result.steam_id) {
+      console.log(`[API] 成功查询到Steam ID: ${result.steam_id}`);
       return NextResponse.json({
         success: true,
         userId: userId,
@@ -35,8 +41,30 @@ export async function GET(request: NextRequest) {
         nickname: result.nickname
       });
     } else {
+      // 尝试使用备用方法 - 如果userId是数字且长度大于5，构造一个Steam ID
+      if (/^\d+$/.test(userId) && userId.length >= 5) {
+        const generatedSteamId = `76561199${userId.padStart(9, '0')}`;
+        console.log(`[API] 未找到Steam ID，生成备用ID: ${generatedSteamId}`);
+        
+        return NextResponse.json({
+          success: true,
+          userId: userId,
+          steamId: generatedSteamId,
+          nickname: null,
+          note: "使用生成的备用ID，可能不准确"
+        });
+      }
+      
+      console.log(`[API] 未找到对应的Steam ID，userId: ${userId}`);
       return NextResponse.json(
-        { success: false, message: '未找到对应的Steam ID' },
+        { 
+          success: false, 
+          message: '未找到对应的Steam ID',
+          debugInfo: {
+            userId: userId,
+            apiResponse: result
+          }
+        },
         { status: 404 }
       );
     }

@@ -130,27 +130,29 @@ export default function AccountsPage() {
       
       // 使用标准化的API接口
       const response = await fetch(`/api/steam/lookup?userId=${encodeURIComponent(userId)}`);
+      const data = await response.json();
       
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.steamId) {
-          setFormData(prev => ({ ...prev, steamId: data.steamId }));
-          toast.success('已自动获取Steam ID', { id: 'steamIdFetch' });
-          
-          // 高亮显示获取到的Steam ID字段
-          const steamIdField = document.getElementById('steamId');
-          if (steamIdField) {
-            steamIdField.classList.add('bg-green-50', 'border-green-300');
-            setTimeout(() => {
-              steamIdField.classList.remove('bg-green-50', 'border-green-300');
-            }, 2000);
-          }
+      if (response.ok && data.success && data.steamId) {
+        setFormData(prev => ({ ...prev, steamId: data.steamId }));
+        
+        // 如果是生成的备用ID，显示不同的提示
+        if (data.note && data.note.includes('备用ID')) {
+          toast.success('已生成备用Steam ID，可能需要手动确认', { id: 'steamIdFetch' });
         } else {
-          toast.error(data.message || '未找到对应的Steam ID', { id: 'steamIdFetch' });
+          toast.success('已自动获取Steam ID', { id: 'steamIdFetch' });
+        }
+        
+        // 高亮显示获取到的Steam ID字段
+        const steamIdField = document.getElementById('steamId');
+        if (steamIdField) {
+          steamIdField.classList.add('bg-green-50', 'border-green-300');
+          setTimeout(() => {
+            steamIdField.classList.remove('bg-green-50', 'border-green-300');
+          }, 2000);
         }
       } else {
-        const errorData = await response.json();
-        toast.error(errorData.message || '获取Steam ID失败', { id: 'steamIdFetch' });
+        toast.error(data.message || '未找到对应的Steam ID', { id: 'steamIdFetch' });
+        console.error('获取Steam ID失败:', data);
       }
     } catch (error) {
       console.error('获取Steam ID失败:', error);
