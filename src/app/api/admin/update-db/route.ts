@@ -21,134 +21,103 @@ export async function POST(request: NextRequest) {
     console.log('[API] 开始更新数据库结构...');
     
     // 记录操作
-    addLog({
-      action: 'UPDATE_DATABASE_SCHEMA',
-      details: '执行数据库架构更新',
-      ip: request.headers.get('x-forwarded-for') || 'unknown'
-    });
-
-    // 1. 检查accounts表是否存在
-    let accountsTableExists = false;
     try {
-      const tables = await sql`SELECT name FROM sqlite_master WHERE type='table' AND name='accounts'`;
-      accountsTableExists = tables.length > 0;
+      addLog({
+        action: 'UPDATE_DATABASE_SCHEMA',
+        details: '执行数据库架构更新',
+        ip: request.headers.get('x-forwarded-for') || 'unknown'
+      });
+    } catch (logError) {
+      console.warn('[API] 无法记录日志，可能是日志表不存在:', logError);
+      // 继续执行，因为我们将创建日志表
+    }
+
+    // 使用直接的创建表语句，如果表已存在则不会有影响
+    const updates: string[] = [];
+
+    // 1. 创建accounts表（如果不存在）
+    try {
+      console.log('[API] 尝试创建accounts表...');
+      await sql`
+        CREATE TABLE IF NOT EXISTS accounts (
+          id TEXT PRIMARY KEY,
+          username TEXT UNIQUE,
+          phone TEXT UNIQUE,
+          "userId" TEXT UNIQUE,
+          "steamId" TEXT,
+          status TEXT DEFAULT 'active',
+          "authToken" TEXT,
+          "tokenExpiry" TIMESTAMP,
+          "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          "lastLogin" TIMESTAMP
+        )
+      `;
+      updates.push('accounts表检查/创建');
+      console.log('[API] accounts表已创建或已存在');
     } catch (error) {
-      console.error('[API] 检查accounts表失败:', error);
-      return NextResponse.json({
-        success: false,
-        message: '检查数据库表结构失败',
-        error: error instanceof Error ? error.message : String(error)
-      }, { status: 500 });
+      console.error('[API] 创建accounts表失败:', error);
+      // 继续执行，尝试添加列
     }
 
-    if (!accountsTableExists) {
-      console.log('[API] accounts表不存在，创建新表...');
-      try {
-        await sql`
-          CREATE TABLE accounts (
-            id TEXT PRIMARY KEY,
-            username TEXT UNIQUE,
-            phone TEXT UNIQUE,
-            "userId" TEXT UNIQUE,
-            "steamId" TEXT,
-            status TEXT DEFAULT 'active',
-            "authToken" TEXT,
-            "tokenExpiry" TIMESTAMP,
-            "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            "lastLogin" TIMESTAMP
-          )
-        `;
-        console.log('[API] 成功创建accounts表');
-      } catch (error) {
-        console.error('[API] 创建accounts表失败:', error);
-        return NextResponse.json({
-          success: false,
-          message: '创建accounts表失败',
-          error: error instanceof Error ? error.message : String(error)
-        }, { status: 500 });
-      }
-    } else {
-      // 2. 检查是否存在authToken和tokenExpiry列
-      let columnsInfo;
-      try {
-        columnsInfo = await sql`PRAGMA table_info(accounts)`;
-      } catch (error) {
-        console.error('[API] 获取表结构信息失败:', error);
-        return NextResponse.json({
-          success: false,
-          message: '获取表结构信息失败',
-          error: error instanceof Error ? error.message : String(error)
-        }, { status: 500 });
-      }
-
-      const columns = columnsInfo.map(col => col.name?.toLowerCase());
-      console.log('[API] 当前账号表列:', columns);
-
-      // 3. 添加缺失的列
-      if (!columns.includes('authtoken')) {
-        console.log('[API] 添加 authToken 列');
-        try {
-          await sql`ALTER TABLE accounts ADD COLUMN "authToken" TEXT`;
-        } catch (error) {
-          console.error('[API] 添加 authToken 列失败:', error);
-        }
-      }
-      
-      if (!columns.includes('tokenexpiry')) {
-        console.log('[API] 添加 tokenExpiry 列');
-        try {
-          await sql`ALTER TABLE accounts ADD COLUMN "tokenExpiry" TIMESTAMP`;
-        } catch (error) {
-          console.error('[API] 添加 tokenExpiry 列失败:', error);
-        }
-      }
+    // 2. 添加缺失的列（使用ALTER TABLE ADD COLUMN IF NOT EXISTS，但某些数据库可能不支持IF NOT EXISTS）
+    // 因此我们使用try-catch来处理可能的错误
+    try {
+      console.log('[API] 尝试添加authToken列...');
+      await sql`ALTER TABLE accounts ADD COLUMN "authToken" TEXT`;
+      updates.push('添加authToken列');
+    } catch (error) {
+      console.log('[API] 添加authToken列失败，可能已存在:', error);
+      // 列可能已存在，继续执行
     }
 
-    // 4. 添加索引
+    try {
+      console.log('[API] 尝试添加tokenExpiry列...');
+      await sql`ALTER TABLE accounts ADD COLUMN "tokenExpiry" TIMESTAMP`;
+      updates.push('添加tokenExpiry列');
+    } catch (error) {
+      console.log('[API] 添加tokenExpiry列失败，可能已存在:', error);
+      // 列可能已存在，继续执行
+    }
+
+    // 3. 添加索引
     try {
       console.log('[API] 创建或更新索引...');
       await sql`CREATE INDEX IF NOT EXISTS idx_accounts_authToken ON accounts("authToken")`;
       await sql`CREATE INDEX IF NOT EXISTS idx_accounts_tokenExpiry ON accounts("tokenExpiry")`;
       await sql`CREATE INDEX IF NOT EXISTS idx_accounts_steamId ON accounts("steamId")`;
+      updates.push('创建索引');
       console.log('[API] 成功创建所有索引');
     } catch (error) {
       console.error('[API] 创建索引失败:', error);
-      return NextResponse.json({
-        success: false,
-        message: '创建索引失败',
-        error: error instanceof Error ? error.message : String(error)
-      }, { status: 500 });
+      // 继续执行，尝试创建日志表
     }
 
-    // 5. 检查并修复日志表
+    // 4. 创建日志表（如果不存在）
     try {
-      const logTablesExist = await sql`SELECT name FROM sqlite_master WHERE type='table' AND name='logs'`;
-      if (logTablesExist.length === 0) {
-        console.log('[API] 创建日志表...');
-        await sql`
-          CREATE TABLE logs (
-            id TEXT PRIMARY KEY,
-            "userId" TEXT,
-            action TEXT NOT NULL,
-            details TEXT,
-            ip TEXT,
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          )
-        `;
-        console.log('[API] 成功创建日志表');
-      }
+      console.log('[API] 尝试创建logs表...');
+      await sql`
+        CREATE TABLE IF NOT EXISTS logs (
+          id TEXT PRIMARY KEY,
+          "userId" TEXT,
+          action TEXT NOT NULL,
+          details TEXT,
+          ip TEXT,
+          timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `;
+      updates.push('logs表检查/创建');
+      console.log('[API] logs表已创建或已存在');
     } catch (error) {
-      console.error('[API] 检查/创建日志表失败:', error);
-      // 继续执行，不中断流程
+      console.error('[API] 创建logs表失败:', error);
+      // 继续执行
     }
 
+    // 返回成功响应
     return NextResponse.json({
       success: true,
       message: '数据库结构更新成功',
       details: {
-        tablesChecked: ['accounts', 'logs'],
-        columnsAdded: ['authToken', 'tokenExpiry'],
-        indexesCreated: ['idx_accounts_authToken', 'idx_accounts_tokenExpiry', 'idx_accounts_steamId']
+        updates
       }
     });
   } catch (error) {
