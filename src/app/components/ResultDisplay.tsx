@@ -139,6 +139,14 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false,
   const router = useRouter();
   const [eloData, setEloData] = useState<EloResponse | null>(null);
   const [loadingElo, setLoadingElo] = useState(false);
+  const [playerStats, setPlayerStats] = useState<PlayerStatsData | null>(null);
+  
+  // 初始化playerStats状态
+  useEffect(() => {
+    if (data.playerStats) {
+      setPlayerStats(data.playerStats);
+    }
+  }, [data.playerStats]);
   
   // 获取ELO分数和比赛记录
   useEffect(() => {
@@ -174,19 +182,29 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false,
               rating: match.rating || 1.0
             }));
             
-            // 更新数据状态以集成新的比赛记录
-            if (!data.playerStats) {
-              data.playerStats = {
-                code: 1,
-                data: {
-                  pvpScore: response.data.data.pvpScore,
-                  matchList: updatedMatches
-                }
-              };
-            } else {
-              data.playerStats.data.pvpScore = response.data.data.pvpScore;
-              data.playerStats.data.matchList = updatedMatches;
-            }
+            // 更新playerStats状态，而不是直接修改data对象
+            setPlayerStats(prevStats => {
+              if (!prevStats) {
+                // 如果之前没有数据，创建新的对象
+                return {
+                  code: 1,
+                  data: {
+                    pvpScore: response.data.data.pvpScore,
+                    matchList: updatedMatches
+                  }
+                };
+              } else {
+                // 如果有现有数据，创建新对象并合并数据
+                return {
+                  ...prevStats,
+                  data: {
+                    ...prevStats.data,
+                    pvpScore: response.data.data.pvpScore,
+                    matchList: updatedMatches
+                  }
+                };
+              }
+            });
           }
         }
       } catch (error) {
@@ -229,7 +247,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false,
   const maps = detailedStats?.maps as Map[] | undefined;
   
   // 从playerStats获取比赛列表
-  const matchList = data.playerStats?.data?.matchList || [];
+  const matchList = playerStats?.data?.matchList || [];
 
   // 格式化日期时间
   const formatMatchDate = (timestamp: number) => {
@@ -283,17 +301,17 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false,
             <div className="p-4 bg-gray-50 rounded-md">
               <p className="text-sm font-medium text-gray-700">ELO 分数</p>
               <p className="font-medium text-blue-600">
-                {(data.playerStats?.data?.pvpScore !== null && data.playerStats?.data?.pvpScore !== undefined)
-                  ? `${data.playerStats.data.pvpScore}` 
+                {(playerStats?.data?.pvpScore !== null && playerStats?.data?.pvpScore !== undefined)
+                  ? `${playerStats.data.pvpScore}` 
                   : eloData?.data?.pvpScore
                     ? `${eloData.data.pvpScore}` 
                     : loadingElo 
                       ? '加载中...' 
                       : '获取中...'}
               </p>
-              {data.playerStats?.data?.matchList && data.playerStats.data.matchList.length > 0 && (
+              {playerStats?.data?.matchList && playerStats.data.matchList.length > 0 && (
                 <p className="text-xs text-gray-500 mt-1">
-                  最近比赛: {data.playerStats.data.matchList[0].mapName} ({data.playerStats.data.matchList[0].score1}:{data.playerStats.data.matchList[0].score2})
+                  最近比赛: {playerStats.data.matchList[0].mapName} ({playerStats.data.matchList[0].score1}:{playerStats.data.matchList[0].score2})
                 </p>
               )}
             </div>
@@ -312,7 +330,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false,
       )}
 
       {/* 比赛战绩列表 */}
-      {matchList.length > 0 && (
+      {playerStats?.data?.matchList && playerStats.data.matchList.length > 0 && (
         <div className="mb-8">
           <h3 className="text-xl font-semibold mb-4 text-gray-800">近期比赛战绩</h3>
           <div className="overflow-x-auto">
@@ -329,7 +347,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false,
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {matchList.map((match, index) => (
+                {playerStats.data.matchList.map((match, index) => (
                   <tr key={match.matchId} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                     <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">{formatMatchDate(match.timeStamp)}</td>
                     <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">
@@ -468,7 +486,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false,
       )}
 
       {/* 如果没有数据 */}
-      {!userInfo && !detailedStats && matchList.length === 0 && (
+      {!userInfo && !detailedStats && (!playerStats?.data?.matchList || playerStats.data.matchList.length === 0) && (
         <div className="p-4 border border-yellow-300 bg-yellow-50 rounded-md">
           <p className="text-yellow-700 font-medium">未能获取玩家详细数据，仅有基本信息可用。</p>
         </div>
