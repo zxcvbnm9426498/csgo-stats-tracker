@@ -108,121 +108,118 @@ async function handleGetEloScore(data: any) {
   }
 
   try {
-    // 查询数据库中是否有缓存的ELO数据
-    const cachedData = await sql`
-      SELECT * FROM player_elo
-      WHERE steam_id = ${steamId}
-      AND updated_at > NOW() - INTERVAL '1 day'
-      LIMIT 1
-    `;
-
-    // 如果有缓存数据且格式正确，直接返回
-    if (cachedData && cachedData.length > 0) {
-      const eloData = cachedData[0].data;
-      
-      // 生成符合文档格式的响应
-      return NextResponse.json({
-        statusCode: 0,
-        data: {
-          pvpScore: eloData.elo,
-          // 将历史数据转换为比赛记录格式
-          matchList: eloData.history ? eloData.history.map((item: any, index: number) => ({
-            matchId: `match_${index}`,
-            mapName: ['de_dust2', 'de_mirage', 'de_inferno', 'de_nuke', 'de_cache'][Math.floor(Math.random() * 5)],
-            score1: Math.floor(Math.random() * 16) + 1,
-            score2: Math.floor(Math.random() * 16) + 1,
-            startTime: new Date(item.date).getTime().toString().substr(0, 10),
-            pvpScore: item.elo,
-            pvpScoreChange: index === 0 ? 0 : item.elo - eloData.history[index - 1].elo,
-            // 添加UI需要的其他字段
-            kill: Math.floor(Math.random() * 30) + 5,
-            death: Math.floor(Math.random() * 20) + 5,
-            assist: Math.floor(Math.random() * 15),
-            rating: Math.random() * 1.5 + 0.5,
-            timeStamp: new Date(item.date).getTime() / 1000,
-            team: Math.random() > 0.5 ? 1 : 2,
-            winTeam: Math.random() > 0.5 ? 1 : 2
-          })).reverse() : []
-        }
-      });
-    }
-
-    // 如果没有缓存数据，生成模拟数据
-    const pvpScore = Math.floor(Math.random() * 2500) + 500; // 模拟 500-3000 的ELO分数
+    // 优先使用请求头中的Token，如果没有则从数据库获取
+    let token = data.token;
     
-    // 生成5场模拟比赛记录
-    const matchList = Array.from({ length: 5 }, (_, index) => {
-      const date = new Date();
-      date.setDate(date.getDate() - (index * 2)); // 每两天一场比赛
+    if (!token) {
+      console.log('[API] 尝试从数据库获取Token');
+      token = await getTokenFromDatabase(steamId);
       
-      const baseScore = pvpScore - (index * Math.floor(Math.random() * 50) - 25);
-      const scoreChange = index === 0 ? 0 : Math.floor(Math.random() * 30) - 10;
-      
-      return {
-        matchId: `match_${date.getTime()}`,
-        mapName: ['de_dust2', 'de_mirage', 'de_inferno', 'de_nuke', 'de_cache'][Math.floor(Math.random() * 5)],
-        score1: Math.floor(Math.random() * 16) + 1,
-        score2: Math.floor(Math.random() * 16) + 1,
-        startTime: Math.floor(date.getTime() / 1000).toString(),
-        pvpScore: baseScore,
-        pvpScoreChange: scoreChange,
-        kill: Math.floor(Math.random() * 30) + 5,
-        death: Math.floor(Math.random() * 20) + 5,
-        assist: Math.floor(Math.random() * 15),
-        rating: Math.random() * 1.5 + 0.5,
-        timeStamp: Math.floor(date.getTime() / 1000),
-        team: Math.random() > 0.5 ? 1 : 2,
-        winTeam: Math.random() > 0.5 ? 1 : 2
-      };
-    });
-
-    // 将数据保存到缓存
-    try {
-      // 构建历史记录数据以保存在player_elo表中
-      const history = matchList.map((match) => ({
-        date: new Date(parseInt(match.startTime) * 1000).toISOString(),
-        elo: match.pvpScore
-      }));
-      
-      const eloData = {
-        elo: pvpScore,
-        rank: Math.floor(Math.random() * 1000) + 1,
-        history: history.reverse() // 倒序，最新的在最后
-      };
-      
-      // 检查是否已有记录
-      const existingRecord = await sql`
-        SELECT * FROM player_elo
-        WHERE steam_id = ${steamId}
-      `;
-      
-      if (existingRecord && existingRecord.length > 0) {
-        // 更新现有记录
-        await sql`
-          UPDATE player_elo
-          SET data = ${JSON.stringify(eloData)},
-              updated_at = NOW()
-          WHERE steam_id = ${steamId}
-        `;
-      } else {
-        // 插入新记录
-        await sql`
-          INSERT INTO player_elo (steam_id, data, created_at, updated_at)
-          VALUES (${steamId}, ${JSON.stringify(eloData)}, NOW(), NOW())
-        `;
+      if (!token) {
+        console.warn('[API] 无法获取有效Token，将返回错误');
+        return NextResponse.json({
+          statusCode: 1,
+          message: '无法获取有效Token，请先登录或确保账号已关联'
+        }, { status: 401 });
       }
-    } catch (cacheError) {
-      console.error('缓存ELO数据失败:', cacheError);
-      // 继续返回数据，即使缓存失败
     }
 
-    return NextResponse.json({
-      statusCode: 0,
-      data: {
-        pvpScore,
-        matchList
+    // 调用完美世界API获取比赛记录
+    console.log(`[API] 使用Token获取玩家 ${steamId} 的ELO分数和比赛记录`);
+    
+    const timestamp = Math.floor(Date.now() / 1000);
+    const url = "https://api.wmpvp.com/api/csgo/home/match/list";
+    
+    const headers = {
+      "Host": "api.wmpvp.com",
+      "Accept": "*/*",
+      "appversion": "3.5.9",
+      "gameTypeStr": "2",
+      "Accept-Encoding": "gzip",
+      "Accept-Language": "zh-Hans-CN;q=1.0",
+      "platform": "ios",
+      "token": token,
+      "appTheme": "0",
+      "t": String(timestamp),
+      "User-Agent": "esport-app/3.5.9 (com.wmzq.esportapp; build:2; iOS 18.4.0) Alamofire/5.10.2",
+      "gameType": "2",
+      "Connection": "keep-alive",
+      "Content-Type": "application/json"
+    };
+    
+    const payload = {
+      "pvpType": -1,
+      "mySteamId": 0,
+      "csgoSeasonId": "recent",
+      "page": 1,
+      "pageSize": 11,
+      "dataSource": 3,
+      "toSteamId": Number(steamId)
+    };
+    
+    console.log('[API] 请求比赛数据 payload:', JSON.stringify(payload));
+    
+    const response = await axios.post(url, payload, { headers });
+    const responseData = response.data;
+    
+    // 检查API响应是否成功
+    if (responseData.statusCode === 0 && responseData.data) {
+      console.log('[API] 成功获取比赛数据');
+      
+      // 缓存获取到的数据到数据库
+      try {
+        const matchList = responseData.data.matchList || [];
+        if (matchList.length > 0) {
+          const pvpScore = matchList[0].pvpScore || 0;
+          
+          // 构建历史记录数据以保存在player_elo表中
+          const history = matchList.map((match: any) => ({
+            date: new Date(match.timeStamp * 1000).toISOString(),
+            elo: match.pvpScore
+          }));
+          
+          const eloData = {
+            elo: pvpScore,
+            rank: Math.floor(Math.random() * 1000) + 1, // 仍然随机生成排名，因为API没返回
+            history: history
+          };
+          
+          // 检查是否已有记录
+          const existingRecord = await sql`
+            SELECT * FROM player_elo
+            WHERE steam_id = ${steamId}
+          `;
+          
+          if (existingRecord && existingRecord.length > 0) {
+            // 更新现有记录
+            await sql`
+              UPDATE player_elo
+              SET data = ${JSON.stringify(eloData)},
+                  updated_at = NOW()
+              WHERE steam_id = ${steamId}
+            `;
+          } else {
+            // 插入新记录
+            await sql`
+              INSERT INTO player_elo (steam_id, data, created_at, updated_at)
+              VALUES (${steamId}, ${JSON.stringify(eloData)}, NOW(), NOW())
+            `;
+          }
+        }
+      } catch (cacheError) {
+        console.error('缓存ELO数据失败:', cacheError);
+        // 继续返回数据，即使缓存失败
       }
-    });
+      
+      // 直接返回API响应数据
+      return NextResponse.json(responseData);
+    } else {
+      console.error('[API] 获取比赛数据失败:', responseData);
+      return NextResponse.json({
+        statusCode: 1,
+        message: responseData.errorMessage || '获取比赛数据失败',
+      }, { status: 500 });
+    }
   } catch (error) {
     console.error('[API] 获取ELO分数数据失败:', error);
     return NextResponse.json({
