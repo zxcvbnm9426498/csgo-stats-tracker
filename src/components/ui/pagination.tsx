@@ -34,16 +34,21 @@ const PaginationItem = React.forwardRef<
 ))
 PaginationItem.displayName = "PaginationItem"
 
+// 自定义PaginationLink类型，避免a标签与Button的冲突
 type PaginationLinkProps = {
-  isActive?: boolean
-} & Pick<ButtonProps, "size"> &
-  React.ComponentProps<"a">
+  isActive?: boolean;
+  size?: "default" | "sm" | "lg";
+  className?: string;
+  onClick?: () => void;
+  children?: React.ReactNode;
+};
 
 const PaginationLink = ({
   className,
   isActive,
   size = "default",
-  ...props
+  onClick,
+  children
 }: PaginationLinkProps) => (
   <Button
     aria-current={isActive ? "page" : undefined}
@@ -56,20 +61,24 @@ const PaginationLink = ({
       },
       className
     )}
-    {...props}
-  />
+    onClick={onClick}
+    type="button"
+  >
+    {children}
+  </Button>
 )
 PaginationLink.displayName = "PaginationLink"
 
 const PaginationPrevious = ({
   className,
-  ...props
-}: React.ComponentProps<typeof PaginationLink>) => (
+  onClick
+}: {
+  className?: string;
+  onClick?: () => void;
+}) => (
   <PaginationLink
-    aria-label="Go to previous page"
-    size="default"
     className={cn("gap-1 pl-2.5", className)}
-    {...props}
+    onClick={onClick}
   >
     <ChevronLeft className="h-4 w-4" />
     <span>上一页</span>
@@ -79,13 +88,14 @@ PaginationPrevious.displayName = "PaginationPrevious"
 
 const PaginationNext = ({
   className,
-  ...props
-}: React.ComponentProps<typeof PaginationLink>) => (
+  onClick
+}: {
+  className?: string;
+  onClick?: () => void;
+}) => (
   <PaginationLink
-    aria-label="Go to next page"
-    size="default"
     className={cn("gap-1 pr-2.5", className)}
-    {...props}
+    onClick={onClick}
   >
     <span>下一页</span>
     <ChevronRight className="h-4 w-4" />
