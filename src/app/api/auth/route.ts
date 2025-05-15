@@ -138,7 +138,7 @@ async function handleGetEloScore(data: any) {
             kill: Math.floor(Math.random() * 30) + 5,
             death: Math.floor(Math.random() * 20) + 5,
             assist: Math.floor(Math.random() * 15),
-            rating: (Math.random() * 1.5 + 0.5).toFixed(2),
+            rating: Math.random() * 1.5 + 0.5,
             timeStamp: new Date(item.date).getTime() / 1000,
             team: Math.random() > 0.5 ? 1 : 2,
             winTeam: Math.random() > 0.5 ? 1 : 2
@@ -169,7 +169,7 @@ async function handleGetEloScore(data: any) {
         kill: Math.floor(Math.random() * 30) + 5,
         death: Math.floor(Math.random() * 20) + 5,
         assist: Math.floor(Math.random() * 15),
-        rating: (Math.random() * 1.5 + 0.5).toFixed(2),
+        rating: Math.random() * 1.5 + 0.5,
         timeStamp: Math.floor(date.getTime() / 1000),
         team: Math.random() > 0.5 ? 1 : 2,
         winTeam: Math.random() > 0.5 ? 1 : 2

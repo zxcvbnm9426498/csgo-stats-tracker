@@ -261,12 +261,15 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false,
     });
   };
 
-  // 评分的颜色
-  const getRatingColor = (rating: number) => {
-    if (rating >= 2.0) return 'text-purple-600';
-    if (rating >= 1.5) return 'text-green-600';
-    if (rating >= 1.0) return 'text-blue-600';
-    if (rating >= 0.85) return 'text-yellow-600';
+  // 修改getRatingColor函数，支持字符串和数字类型
+  const getRatingColor = (rating: number | string) => {
+    // 将rating转换为数字以便比较
+    const numRating = typeof rating === 'string' ? parseFloat(rating) : rating;
+    
+    if (numRating >= 2.0) return 'text-purple-600';
+    if (numRating >= 1.5) return 'text-green-600';
+    if (numRating >= 1.0) return 'text-blue-600';
+    if (numRating >= 0.85) return 'text-yellow-600';
     return 'text-red-600';
   };
 
@@ -367,7 +370,13 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false,
                       {match.kill}/{match.death}/{match.assist}
                     </td>
                     <td className="px-3 py-3 whitespace-nowrap text-sm text-center font-medium">
-                      <span className={getRatingColor(match.rating)}>{match.rating.toFixed(2)}</span>
+                      <span className={getRatingColor(match.rating)}>
+                        {typeof match.rating === 'number' 
+                          ? match.rating.toFixed(2) 
+                          : typeof match.rating === 'string' 
+                            ? match.rating 
+                            : '0.00'}
+                      </span>
                     </td>
                     <td className="px-3 py-3 whitespace-nowrap text-sm text-center">{match.pvpScore}</td>
                     <td className="px-3 py-3 whitespace-nowrap text-sm text-center font-medium">
