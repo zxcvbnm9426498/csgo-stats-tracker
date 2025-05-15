@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import Link from 'next/link';
-import SearchForm from './components/SearchForm';
 import ResultDisplay from './components/ResultDisplay';
+import AccountCard from './components/AccountCard';
 
 // Define the player data interface
 interface PlayerInfo {
@@ -54,6 +54,15 @@ interface PlayerData {
   detailedStats: DetailedData | null;
 }
 
+// 账号接口定义
+interface Account {
+  id: string;
+  username: string;
+  userId?: string;
+  steamId?: string;
+  status: string;
+}
+
 // Helper function to mask phone number
 const maskPhoneNumber = (phone: string | null): string | null => {
   if (!phone || phone.length < 7) return phone; // Return original if too short or null
@@ -64,12 +73,20 @@ const maskPhoneNumber = (phone: string | null): string | null => {
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [playerData, setPlayerData] = useState<PlayerData | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userPhone, setUserPhone] = useState<string | null>(null);
   const [userToken, setUserToken] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [activeAccount, setActiveAccount] = useState<Account | null>(null);
 
+  // 加载账号列表
+  useEffect(() => {
+    fetchAccounts();
+  }, []);
+
+  // 检查登录状态
   useEffect(() => {
     const authToken = sessionStorage.getItem('authToken');
     const storedPhone = sessionStorage.getItem('loggedInUserPhone');
@@ -82,25 +99,40 @@ export default function Home() {
     setUserId(storedUserId);
 
     console.log(`[页面] 初始加载: isLoggedIn=${currentlyLoggedIn}, Phone=${storedPhone}, UserID=${storedUserId}`);
-    
-    if (currentlyLoggedIn && playerData?.playerInfo?.steamId64Str) {
-      console.log('[页面] 初始加载时已登录且有玩家数据，触发 updatePlayerData');
-      updatePlayerData(playerData.playerInfo.steamId64Str, authToken);
-    }
-  }, [playerData?.playerInfo?.steamId64Str]);
+  }, []);
 
+  // 当账号被选中且有Steam ID时，获取战绩
   useEffect(() => {
-    console.log(`[页面] useEffect 玩家数据检查: playerData=${!!playerData}, isLoggedIn=${isLoggedIn}`);
-    if (playerData?.playerInfo?.steamId64Str && isLoggedIn) {
-      const authToken = sessionStorage.getItem('authToken');
-      if (authToken) {
-        console.log('[页面] 玩家数据已加载且用户已登录，触发 updatePlayerData');
-        updatePlayerData(playerData.playerInfo.steamId64Str, authToken);
-      } else {
-        console.warn('[页面] 玩家数据已加载但 authToken 未找到，无法更新数据');
-      }
+    if (activeAccount?.steamId) {
+      handleAccountSelect(activeAccount);
     }
-  }, [playerData?.playerInfo?.steamId64Str, isLoggedIn]);
+  }, [activeAccount]);
+
+  // 获取所有账号
+  const fetchAccounts = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/public/accounts');
+      
+      if (!response.ok) {
+        throw new Error('获取账号列表失败');
+      }
+      
+      const data = await response.json();
+      if (data.success && data.data.accounts) {
+        // 只显示有Steam ID的账号
+        const validAccounts = data.data.accounts.filter((account: Account) => account.steamId);
+        setAccounts(validAccounts);
+      } else {
+        toast.error('获取账号列表失败');
+      }
+    } catch (error) {
+      console.error('获取账号失败:', error);
+      toast.error(error instanceof Error ? error.message : '获取账号失败');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const updatePlayerData = async (steamId: string, token: string) => {
     try {
@@ -189,7 +221,14 @@ export default function Home() {
     }
   };
 
-  const handleSearch = async (data: { searchType: string; searchId: string }) => {
+  // 处理账号卡片点击
+  const handleAccountSelect = async (account: Account) => {
+    if (!account.steamId) {
+      toast.error('该账号没有关联Steam ID，无法查询战绩');
+      return;
+    }
+
+    setActiveAccount(account);
     setIsLoading(true);
     setPlayerData(null);
 
@@ -201,7 +240,10 @@ export default function Home() {
       const response = await fetch('/api/csgo', {
         method: 'POST',
         headers,
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          searchType: 'steamId',
+          searchId: account.steamId
+        }),
       });
 
       const result = await response.json();
@@ -274,17 +316,68 @@ export default function Home() {
           </div>
         </header>
 
-        <div className="mb-10">
-          <SearchForm onSearch={handleSearch} isLoading={isLoading} />
-        </div>
+        {/* 账号卡片列表 */}
+        {accounts.length > 0 && !activeAccount && (
+          <div className="mb-10">
+            <h2 className="text-2xl font-bold mb-6 text-center">选择玩家查看战绩</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {accounts.map((account) => (
+                <AccountCard
+                  key={account.id}
+                  id={account.id}
+                  username={account.username}
+                  userId={account.userId}
+                  steamId={account.steamId}
+                  status={account.status}
+                  onClick={() => handleAccountSelect(account)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
-        {isLoading ? (
+        {/* 返回按钮 */}
+        {activeAccount && (
+          <div className="mb-6">
+            <button
+              onClick={() => setActiveAccount(null)}
+              className="flex items-center text-blue-600 hover:text-blue-800"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+              </svg>
+              返回玩家列表
+            </button>
+          </div>
+        )}
+
+        {/* 加载提示 */}
+        {isLoading && (
           <div className="text-center py-10">
             <div className="inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
             <p className="mt-2 text-gray-600">正在获取数据，请稍候...</p>
           </div>
-        ) : (
-          playerData && <ResultDisplay data={playerData} isLoggedIn={isLoggedIn} />
+        )}
+
+        {/* 结果展示 */}
+        {!isLoading && playerData && (
+          <div>
+            {activeAccount && (
+              <div className="mb-6 text-center">
+                <h2 className="text-2xl font-bold text-gray-800">
+                  正在查看: {activeAccount.username || activeAccount.steamId}
+                </h2>
+              </div>
+            )}
+            <ResultDisplay data={playerData} isLoggedIn={isLoggedIn} />
+          </div>
+        )}
+
+        {/* 空状态 */}
+        {!isLoading && accounts.length === 0 && (
+          <div className="text-center py-10">
+            <p className="text-gray-600">没有找到可用的玩家账号，请联系管理员添加账号。</p>
+          </div>
         )}
 
         <footer className="mt-16 text-center text-sm text-gray-500">
