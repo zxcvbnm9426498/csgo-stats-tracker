@@ -110,33 +110,93 @@ const formatTimestamp = (timestamp: number | null): string => {
   }
 };
 
+// 添加获取ELO分数的接口类型
+interface EloResponse {
+  statusCode: number;
+  data: {
+    pvpScore: number;
+    matchList: Array<{
+      matchId: string;
+      mapName: string;
+      score1: number;
+      score2: number;
+      startTime: string;
+      pvpScore: number;
+      pvpScoreChange: number;
+      // 其他可能的字段
+      timeStamp?: number;
+      team?: number;
+      winTeam?: number;
+      kill?: number;
+      death?: number;
+      assist?: number;
+      rating?: number;
+    }>;
+  };
+}
+
 const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false, onViewDetails }) => {
   const router = useRouter();
-  const [eloScore, setEloScore] = useState<number | null>(null);
+  const [eloData, setEloData] = useState<EloResponse | null>(null);
   const [loadingElo, setLoadingElo] = useState(false);
   
-  // 获取ELO分数
+  // 获取ELO分数和比赛记录
   useEffect(() => {
-    const fetchEloScore = async () => {
+    const fetchEloData = async () => {
       if (!data.playerInfo?.steamId64Str) return;
       
       setLoadingElo(true);
       try {
-        // 使用API令牌获取ELO分数
+        // 使用API令牌获取认证配置
         const authConfig = await createAuthConfig();
-        const response = await axios.get(`/api/elo/player?steamId=${data.playerInfo.steamId64Str}`, authConfig);
         
-        if (response.data && response.data.success && response.data.data) {
-          setEloScore(response.data.data.elo);
+        // 请求获取ELO数据
+        const response = await axios.post('/api/auth', {
+          action: 'getEloScore',
+          steamId: data.playerInfo.steamId64Str
+        }, authConfig);
+        
+        if (response.data && response.data.statusCode === 0) {
+          setEloData(response.data);
+          
+          // 整合比赛记录数据到playerStats中
+          if (response.data.data.matchList && response.data.data.matchList.length > 0) {
+            // 转换数据格式以匹配组件期望的结构
+            const updatedMatches = response.data.data.matchList.map(match => ({
+              ...match,
+              timeStamp: match.timeStamp || parseInt(match.startTime, 10), // 确保timeStamp字段存在
+              // 如果需要，添加其他默认字段
+              team: match.team || 1,
+              winTeam: match.winTeam || (match.score1 > match.score2 ? 1 : 2),
+              kill: match.kill || 0,
+              death: match.death || 0,
+              assist: match.assist || 0,
+              rating: match.rating || 1.0
+            }));
+            
+            // 更新数据状态以集成新的比赛记录
+            if (!data.playerStats) {
+              data.playerStats = {
+                code: 1,
+                data: {
+                  pvpScore: response.data.data.pvpScore,
+                  matchList: updatedMatches
+                }
+              };
+            } else {
+              data.playerStats.data.pvpScore = response.data.data.pvpScore;
+              data.playerStats.data.matchList = updatedMatches;
+            }
+          }
         }
       } catch (error) {
-        console.error('获取ELO分数失败:', error);
+        console.error('获取ELO分数数据失败:', error);
       } finally {
         setLoadingElo(false);
       }
     };
     
-    fetchEloScore();
+    fetchEloData();
   }, [data.playerInfo?.steamId64Str]);
   
   // 导航到登录页面
@@ -225,8 +285,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false,
               <p className="font-medium text-blue-600">
                 {(data.playerStats?.data?.pvpScore !== null && data.playerStats?.data?.pvpScore !== undefined)
                   ? `${data.playerStats.data.pvpScore}` 
-                  : eloScore 
-                    ? `${eloScore}` 
+                  : eloData?.data?.pvpScore
+                    ? `${eloData.data.pvpScore}` 
                     : loadingElo 
                       ? '加载中...' 
                       : '获取中...'}
