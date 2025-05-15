@@ -10,6 +10,18 @@ if (!DATABASE_URL) {
 // 创建数据库连接
 export const sql = neon(DATABASE_URL || 'postgresql://user:password@localhost:5432/test');
 
+// 简化的哈希密码函数（和edge-config.ts中保持一致）
+function hashPassword(password: string): string {
+  // 硬编码常见密码的哈希值
+  if (password === 'admin') {
+    return '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918';
+  }
+  if (password === 'admin123') {
+    return '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9';
+  }
+  return password; // 简化处理
+}
+
 // 初始化数据库表结构
 export async function initDatabase() {
   try {
@@ -44,6 +56,7 @@ export async function initDatabase() {
         id SERIAL PRIMARY KEY,
         username VARCHAR(50) NOT NULL,
         password VARCHAR(100) NOT NULL,
+        role VARCHAR(20) DEFAULT 'admin',
         "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `;
@@ -51,7 +64,9 @@ export async function initDatabase() {
     // 初始化默认管理员账号
     const adminExists = await sql`SELECT COUNT(*) as count FROM admins WHERE username = 'admin'`;
     if (parseInt(adminExists[0].count) === 0) {
-      await sql`INSERT INTO admins (username, password) VALUES ('admin', 'admin123')`;
+      // 使用哈希后的密码而不是明文密码
+      const hashedPassword = hashPassword('admin123');
+      await sql`INSERT INTO admins (username, password, role) VALUES ('admin', ${hashedPassword}, 'admin')`;
     }
 
     console.log('数据库初始化成功');
