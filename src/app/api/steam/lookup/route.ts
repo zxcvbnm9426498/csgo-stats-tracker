@@ -1,55 +1,55 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getSteamIdFromAlternativeApi } from '@/app/api/csgo/utils';
+import { addLog } from '@/app/api/admin/db';
 
 /**
  * 通过用户ID查询Steam ID的API端点
  */
 export async function GET(request: NextRequest) {
   try {
-    // 获取用户ID参数
     const url = new URL(request.url);
     const userId = url.searchParams.get('userId');
-    
+
     if (!userId) {
-      return NextResponse.json({ 
-        success: false, 
-        message: '缺少必要的userId参数' 
-      }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: '请提供用户ID' },
+        { status: 400 }
+      );
     }
-    
-    console.log(`正在查询用户ID: ${userId} 的Steam ID`);
-    
-    // 调用外部API或服务获取Steam ID
-    // 注意：这里是一个示例，您需要替换为实际的API调用
-    // 例如调用Steam API或您自己的用户数据库
-    
-    // 模拟API调用延迟
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // 模拟找到Steam ID (实际应用中应该是真实API调用)
-    const steamId = await mockFindSteamId(userId);
-    
-    if (steamId) {
+
+    // 记录请求
+    addLog({
+      action: 'LOOKUP_STEAM_ID',
+      details: `查询用户ID对应的Steam ID: ${userId}`,
+      ip: request.headers.get('x-forwarded-for') || 'unknown'
+    });
+
+    // 使用csgo/utils中的方法获取Steam ID
+    const result = await getSteamIdFromAlternativeApi(userId);
+
+    if (result && result.steam_id) {
       return NextResponse.json({
         success: true,
-        userId,
-        steamId,
-        message: '成功获取Steam ID'
+        userId: userId,
+        steamId: result.steam_id,
+        nickname: result.nickname
       });
     } else {
-      return NextResponse.json({
-        success: false,
-        userId,
-        message: '未找到对应的Steam ID'
-      }, { status: 404 });
+      return NextResponse.json(
+        { success: false, message: '未找到对应的Steam ID' },
+        { status: 404 }
+      );
     }
   } catch (error) {
-    console.error('获取Steam ID时出错:', error);
-    
-    return NextResponse.json({
-      success: false,
-      message: '查询Steam ID时发生错误',
-      error: error instanceof Error ? error.message : String(error)
-    }, { status: 500 });
+    console.error('查询Steam ID失败:', error);
+    return NextResponse.json(
+      { 
+        success: false, 
+        message: '查询Steam ID时发生错误',
+        error: error instanceof Error ? error.message : String(error)
+      },
+      { status: 500 }
+    );
   }
 }
 

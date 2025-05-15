@@ -128,7 +128,7 @@ export default function AccountsPage() {
     try {
       toast.loading('正在获取Steam ID...', { id: 'steamIdFetch' });
       
-      // 调用API获取Steam ID
+      // 使用标准化的API接口
       const response = await fetch(`/api/steam/lookup?userId=${encodeURIComponent(userId)}`);
       
       if (response.ok) {
