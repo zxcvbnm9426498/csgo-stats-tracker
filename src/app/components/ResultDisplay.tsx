@@ -2,6 +2,13 @@ import React, { useEffect, useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { createAuthConfig } from '@/utils/api-token';
+import dynamic from 'next/dynamic';
+
+// 动态导入战绩详情弹窗组件
+const MatchHistoryModal = dynamic(() => import('@/components/MatchHistoryModal'), {
+  ssr: false,
+  loading: () => <p>加载中...</p>
+});
 
 // 类型定义
 interface Weapon {
@@ -141,6 +148,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false,
   const [eloData, setEloData] = useState<EloResponse | null>(null);
   const [loadingElo, setLoadingElo] = useState(false);
   const [playerStats, setPlayerStats] = useState<PlayerStatsData | null>(null);
+  const [showMatchHistoryModal, setShowMatchHistoryModal] = useState(false);
   
   // 初始化playerStats状态
   useEffect(() => {
@@ -225,11 +233,13 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false,
 
   // 处理查看详情
   const handleViewDetails = useCallback(() => {
+    // 打开弹窗
+    setShowMatchHistoryModal(true);
+    
     // 触发外部回调
     if (onViewDetails) {
       onViewDetails();
     }
-    // 导航到详情页面...
   }, [onViewDetails]);
 
   useEffect(() => {
@@ -277,6 +287,15 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ data, isLoggedIn = false,
   return (
     <div className="w-full max-w-5xl mx-auto mt-8 p-6 bg-white rounded-xl shadow-md">
       <h2 className="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">玩家信息</h2>
+      
+      {/* 战绩详情弹窗 */}
+      {matchList.length > 0 && (
+        <MatchHistoryModal
+          open={showMatchHistoryModal}
+          onOpenChange={setShowMatchHistoryModal}
+          matches={matchList}
+        />
+      )}
       
       {/* 玩家基本信息 */}
       <div className="mb-8">
