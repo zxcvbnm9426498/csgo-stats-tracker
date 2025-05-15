@@ -41,6 +41,14 @@ interface MatchData {
   startTime: string;
   pvpScore: number;
   pvpScoreChange: number;
+  timeStamp: number;
+  mapLogo?: string;
+  team: number;
+  winTeam: number;
+  kill: number;
+  death: number;
+  assist: number;
+  rating: number;
   // ... other match properties
 }
 
