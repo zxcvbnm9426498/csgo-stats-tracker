@@ -82,8 +82,8 @@ export const MatchHistoryModal: React.FC<MatchHistoryModalProps> = ({
   };
   
   // 生成分页按钮
-  const generatePaginationItems = () => {
-    const items = [];
+  const generatePaginationItems = (): React.ReactElement[] => {
+    const items: React.ReactElement[] = [];
     const maxDisplayedPages = 5; // 最多显示的页码数
     
     let startPage = Math.max(1, currentPage - Math.floor(maxDisplayedPages / 2));
