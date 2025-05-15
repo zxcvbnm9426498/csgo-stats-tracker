@@ -11,7 +11,8 @@ import {
   FileSearchOutlined,
   WarningOutlined,
   DollarOutlined,
-  KeyOutlined
+  KeyOutlined,
+  ApiOutlined
 } from '@ant-design/icons';
 
 const Sidebar = () => {
@@ -48,6 +49,11 @@ const Sidebar = () => {
             key: 'tokens',
             icon: <KeyOutlined />,
             label: <Link href="/admin/tokens">API令牌管理</Link>,
+          },
+          {
+            key: 'token-manager',
+            icon: <ApiOutlined />,
+            label: <Link href="/admin/token-manager">前台令牌工具</Link>,
           },
           {
             key: 'bans',
