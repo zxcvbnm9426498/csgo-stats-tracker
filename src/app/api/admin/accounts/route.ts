@@ -1,54 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAccounts, addAccount, updateAccount, deleteAccount, addLog } from '../db';
+import { getAccounts, addAccount, updateAccount, deleteAccount, addLog } from '@/app/api/admin/db';
 import { cookies } from 'next/headers';
 
 // 检查管理员是否已登录
-async function isAuthenticated(): Promise<boolean> {
-  return (await cookies()).has('admin_session');
+async function isAuthenticated(request: NextRequest): Promise<boolean> {
+  const session = request.cookies.get('admin_session');
+  return !!session && !!session.value;
 }
 
+// 获取账号列表
 export async function GET(request: NextRequest) {
-  if (!await isAuthenticated()) {
-    return NextResponse.json(
-      { success: false, message: '未授权访问' },
-      { status: 401 }
-    );
-  }
-  
   try {
-    // 获取分页参数
-    const searchParams = request.nextUrl.searchParams;
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
-    const search = searchParams.get('search') || '';
-    const status = searchParams.get('status');
-    
+    // 验证管理员身份
+    if (!(await isAuthenticated(request))) {
+      return NextResponse.json({
+        success: false,
+        message: '请先登录'
+      }, { status: 401 });
+    }
+
+    // 获取查询参数
+    const url = new URL(request.url);
+    const page = parseInt(url.searchParams.get('page') || '1');
+    const limit = parseInt(url.searchParams.get('limit') || '10');
+    const search = url.searchParams.get('search') || '';
+    const status = url.searchParams.get('status') || '';
+
     // 获取所有账号
-    let accounts = await getAccounts();
+    const allAccounts = await getAccounts();
     
-    // 应用过滤器
+    // 过滤
+    let filteredAccounts = [...allAccounts];
+    
     if (search) {
-      accounts = accounts.filter(acc => 
-        acc.username.toLowerCase().includes(search.toLowerCase()) || 
-        acc.phone.includes(search) ||
-        (acc.steamId && acc.steamId.includes(search))
+      const searchLower = search.toLowerCase();
+      filteredAccounts = filteredAccounts.filter(acc => 
+        acc.username.toLowerCase().includes(searchLower) ||
+        acc.phone.toLowerCase().includes(searchLower) ||
+        (acc.steamId && acc.steamId.toLowerCase().includes(searchLower))
       );
     }
     
     if (status) {
-      accounts = accounts.filter(acc => acc.status === status);
+      filteredAccounts = filteredAccounts.filter(acc => acc.status === status);
     }
     
-    // 计算分页
-    const total = accounts.length;
+    // 分页
+    const total = filteredAccounts.length;
+    const totalPages = Math.ceil(total / limit);
     const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    const paginatedAccounts = accounts.slice(startIndex, endIndex);
+    const paginatedAccounts = filteredAccounts.slice(startIndex, startIndex + limit);
     
-    // 记录查询日志
+    // 记录访问日志
     await addLog({
       action: 'VIEW_ACCOUNTS',
-      details: `查看账号列表，页码: ${page}, 每页数量: ${limit}${search ? ', 搜索: ' + search : ''}`,
+      details: `查看账号列表，页码: ${page}, 每页数量: ${limit}`,
       ip: request.headers.get('x-forwarded-for') || 'unknown'
     });
     
@@ -58,205 +64,174 @@ export async function GET(request: NextRequest) {
         accounts: paginatedAccounts,
         pagination: {
           total,
-          page,
-          limit,
-          totalPages: Math.ceil(total / limit)
+          totalPages,
+          currentPage: page,
+          limit
         }
       }
     });
   } catch (error) {
-    console.error('获取账号列表时出错:', error);
-    return NextResponse.json(
-      { success: false, message: '服务器内部错误' },
-      { status: 500 }
-    );
+    console.error('获取账号列表失败:', error);
+    return NextResponse.json({
+      success: false,
+      message: '获取账号列表失败',
+      error: error instanceof Error ? error.message : String(error)
+    }, { status: 500 });
   }
 }
 
+// 创建新账号
 export async function POST(request: NextRequest) {
-  if (!await isAuthenticated()) {
-    return NextResponse.json(
-      { success: false, message: '未授权访问' },
-      { status: 401 }
-    );
-  }
-  
   try {
-    const data = await request.json();
-    const { username, phone, steamId, status = 'active' } = data;
+    // 验证管理员身份
+    if (!(await isAuthenticated(request))) {
+      return NextResponse.json({
+        success: false,
+        message: '请先登录'
+      }, { status: 401 });
+    }
     
+    // 获取请求数据
+    const body = await request.json();
+    const { username, phone, steamId, status } = body;
+    
+    // 验证必填字段
     if (!username || !phone) {
-      return NextResponse.json(
-        { success: false, message: '用户名和手机号不能为空' },
-        { status: 400 }
-      );
+      return NextResponse.json({
+        success: false,
+        message: '用户名和手机号是必填字段'
+      }, { status: 400 });
     }
     
-    // 检查用户名或手机号是否已存在
-    const accounts = await getAccounts();
-    if (accounts.some(acc => acc.username === username)) {
-      return NextResponse.json(
-        { success: false, message: '用户名已存在' },
-        { status: 400 }
-      );
-    }
-    
-    if (accounts.some(acc => acc.phone === phone)) {
-      return NextResponse.json(
-        { success: false, message: '手机号已存在' },
-        { status: 400 }
-      );
-    }
-    
-    // 创建新账号
-    const newAccount = await addAccount({
+    // 创建账号
+    const account = await addAccount({
       username,
       phone,
       steamId,
-      status
+      status: status || 'active'
     });
     
     // 记录操作日志
     await addLog({
       action: 'CREATE_ACCOUNT',
-      details: `创建账号 ${username} (ID: ${newAccount.id})`,
+      details: `创建账号: ${username}`,
       ip: request.headers.get('x-forwarded-for') || 'unknown'
     });
     
     return NextResponse.json({
       success: true,
       message: '账号创建成功',
-      data: newAccount
+      data: { account }
     });
   } catch (error) {
-    console.error('创建账号时出错:', error);
-    return NextResponse.json(
-      { success: false, message: '服务器内部错误' },
-      { status: 500 }
-    );
+    console.error('创建账号失败:', error);
+    return NextResponse.json({
+      success: false,
+      message: '创建账号失败',
+      error: error instanceof Error ? error.message : String(error)
+    }, { status: 500 });
   }
 }
 
+// 更新账号
 export async function PUT(request: NextRequest) {
-  if (!await isAuthenticated()) {
-    return NextResponse.json(
-      { success: false, message: '未授权访问' },
-      { status: 401 }
-    );
-  }
-  
   try {
-    const data = await request.json();
-    const { id, username, phone, steamId, status } = data;
+    // 验证管理员身份
+    if (!(await isAuthenticated(request))) {
+      return NextResponse.json({
+        success: false,
+        message: '请先登录'
+      }, { status: 401 });
+    }
+    
+    // 获取请求数据
+    const body = await request.json();
+    const { id, username, phone, steamId, status } = body;
     
     if (!id) {
-      return NextResponse.json(
-        { success: false, message: '账号ID不能为空' },
-        { status: 400 }
-      );
-    }
-    
-    // 检查账号是否存在
-    const accounts = await getAccounts();
-    const existingAccount = accounts.find(acc => acc.id === id);
-    if (!existingAccount) {
-      return NextResponse.json(
-        { success: false, message: '账号不存在' },
-        { status: 404 }
-      );
-    }
-    
-    // 检查用户名或手机号是否与其他账号冲突
-    if (username && username !== existingAccount.username) {
-      if (accounts.some(acc => acc.id !== id && acc.username === username)) {
-        return NextResponse.json(
-          { success: false, message: '用户名已被其他账号使用' },
-          { status: 400 }
-        );
-      }
-    }
-    
-    if (phone && phone !== existingAccount.phone) {
-      if (accounts.some(acc => acc.id !== id && acc.phone === phone)) {
-        return NextResponse.json(
-          { success: false, message: '手机号已被其他账号使用' },
-          { status: 400 }
-        );
-      }
+      return NextResponse.json({
+        success: false,
+        message: '账号ID是必需的'
+      }, { status: 400 });
     }
     
     // 更新账号
-    const updatedAccount = await updateAccount(id, {
+    const account = await updateAccount(id, {
       username,
       phone,
       steamId,
       status
     });
     
+    if (!account) {
+      return NextResponse.json({
+        success: false,
+        message: '账号不存在'
+      }, { status: 404 });
+    }
+    
     // 记录操作日志
     await addLog({
       action: 'UPDATE_ACCOUNT',
-      details: `更新账号 ${username || existingAccount.username} (ID: ${id})`,
+      details: `更新账号: ${account.username}`,
       ip: request.headers.get('x-forwarded-for') || 'unknown'
     });
     
     return NextResponse.json({
       success: true,
       message: '账号更新成功',
-      data: updatedAccount
+      data: { account }
     });
   } catch (error) {
-    console.error('更新账号时出错:', error);
-    return NextResponse.json(
-      { success: false, message: '服务器内部错误' },
-      { status: 500 }
-    );
+    console.error('更新账号失败:', error);
+    return NextResponse.json({
+      success: false,
+      message: '更新账号失败',
+      error: error instanceof Error ? error.message : String(error)
+    }, { status: 500 });
   }
 }
 
+// 删除账号
 export async function DELETE(request: NextRequest) {
-  if (!await isAuthenticated()) {
-    return NextResponse.json(
-      { success: false, message: '未授权访问' },
-      { status: 401 }
-    );
-  }
-  
   try {
+    // 验证管理员身份
+    if (!(await isAuthenticated(request))) {
+      return NextResponse.json({
+        success: false,
+        message: '请先登录'
+      }, { status: 401 });
+    }
+    
+    // 获取请求数据
     const url = new URL(request.url);
     const id = url.searchParams.get('id');
     
     if (!id) {
-      return NextResponse.json(
-        { success: false, message: '账号ID不能为空' },
-        { status: 400 }
-      );
+      return NextResponse.json({
+        success: false,
+        message: '账号ID是必需的'
+      }, { status: 400 });
     }
     
-    // 检查账号是否存在
+    // 获取所有账号，找到要删除的账号信息用于记录日志
     const accounts = await getAccounts();
-    const existingAccount = accounts.find(acc => acc.id === id);
-    if (!existingAccount) {
-      return NextResponse.json(
-        { success: false, message: '账号不存在' },
-        { status: 404 }
-      );
-    }
+    const accountToDelete = accounts.find(acc => acc.id === id);
     
     // 删除账号
-    const isDeleted = await deleteAccount(id);
+    const deleted = await deleteAccount(id);
     
-    if (!isDeleted) {
-      return NextResponse.json(
-        { success: false, message: '删除账号失败' },
-        { status: 500 }
-      );
+    if (!deleted) {
+      return NextResponse.json({
+        success: false,
+        message: '账号不存在或删除失败'
+      }, { status: 404 });
     }
     
     // 记录操作日志
     await addLog({
       action: 'DELETE_ACCOUNT',
-      details: `删除账号 ${existingAccount.username} (ID: ${id})`,
+      details: `删除账号: ${accountToDelete?.username || id}`,
       ip: request.headers.get('x-forwarded-for') || 'unknown'
     });
     
@@ -265,10 +240,11 @@ export async function DELETE(request: NextRequest) {
       message: '账号删除成功'
     });
   } catch (error) {
-    console.error('删除账号时出错:', error);
-    return NextResponse.json(
-      { success: false, message: '服务器内部错误' },
-      { status: 500 }
-    );
+    console.error('删除账号失败:', error);
+    return NextResponse.json({
+      success: false,
+      message: '删除账号失败',
+      error: error instanceof Error ? error.message : String(error)
+    }, { status: 500 });
   }
 } 

@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { Inter } from 'next/font/google';
 import "./globals.css";
 import "./styles/modal.css";
 import InitDB from "./components/InitDB";
 
-const inter = Inter({ subsets: ['latin'] });
+// 使用系统字体，替代Inter字体
+const systemFontClass = 'font-sans';
 
 export const metadata: Metadata = {
   title: "CSGO 玩家战绩查询系统",
@@ -18,7 +18,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN">
-      <body className={inter.className}>
+      <body className={systemFontClass}>
         <InitDB />
         {children}
       </body>

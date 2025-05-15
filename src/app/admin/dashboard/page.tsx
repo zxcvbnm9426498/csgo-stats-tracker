@@ -47,47 +47,69 @@ export default function DashboardPage() {
         
         // 获取日志数据
         const result = await response.json();
-        if (result.success) {
+        if (result.success && result.data && result.data.logs) {
           setRecentLogs(result.data.logs);
-        }
-        
-        // 获取账号数据
-        const accountsResponse = await fetch('/api/admin/accounts');
-        if (accountsResponse.ok) {
-          const accountsResult = await accountsResponse.json();
-          if (accountsResult.success) {
-            const accounts = accountsResult.data.accounts;
-            
-            // 计算统计数据
-            const activeAccounts = accounts.filter((acc: any) => acc.status === 'active').length;
-            const suspendedAccounts = accounts.filter((acc: any) => acc.status === 'suspended').length;
-            const bannedAccounts = accounts.filter((acc: any) => acc.status === 'banned').length;
-            
-            // 计算今日日志数量
-            const today = new Date().toISOString().split('T')[0];
-            const todayLogs = result.data.logs.filter((log: any) => 
-              log.timestamp.startsWith(today)
-            ).length;
-            
-            // 计算最近登录和搜索数量
-            const recentLogins = result.data.logs.filter((log: any) => 
-              log.action.includes('LOGIN')
-            ).length;
-            
-            const recentSearches = result.data.logs.filter((log: any) => 
-              log.action.includes('SEARCH') || log.action.includes('VIEW')
-            ).length;
-            
-            setStats({
-              totalAccounts: accounts.length,
-              activeAccounts,
-              suspendedAccounts,
-              bannedAccounts,
-              totalLogs: result.data.pagination.total,
-              todayLogs,
-              recentLogins,
-              recentSearches
-            });
+          
+          // 获取账号数据
+          const accountsResponse = await fetch('/api/admin/accounts');
+          if (accountsResponse.ok) {
+            const accountsResult = await accountsResponse.json();
+            if (accountsResult.success && accountsResult.data && accountsResult.data.accounts) {
+              const accounts = accountsResult.data.accounts;
+              
+              // 计算统计数据
+              const activeAccounts = accounts.filter((acc: any) => acc.status === 'active').length;
+              const suspendedAccounts = accounts.filter((acc: any) => acc.status === 'suspended').length;
+              const bannedAccounts = accounts.filter((acc: any) => acc.status === 'banned').length;
+              
+              // 计算今日日志数量
+              const today = new Date().toISOString().split('T')[0];
+              const todayLogs = result.data.logs.filter((log: any) => 
+                log.timestamp && log.timestamp.startsWith(today)
+              ).length;
+              
+              // 计算最近登录和搜索数量
+              const recentLogins = result.data.logs.filter((log: any) => 
+                log.action && log.action.includes('LOGIN')
+              ).length;
+              
+              const recentSearches = result.data.logs.filter((log: any) => 
+                log.action && (log.action.includes('SEARCH') || log.action.includes('VIEW'))
+              ).length;
+              
+              setStats({
+                totalAccounts: accounts.length,
+                activeAccounts,
+                suspendedAccounts,
+                bannedAccounts,
+                totalLogs: result.data.pagination?.total || result.data.logs.length,
+                todayLogs,
+                recentLogins,
+                recentSearches
+              });
+            } else {
+              // 如果没有获取到账号数据，至少更新日志相关统计
+              const today = new Date().toISOString().split('T')[0];
+              const todayLogs = result.data.logs.filter((log: any) => 
+                log.timestamp && log.timestamp.startsWith(today)
+              ).length;
+              
+              const recentLogins = result.data.logs.filter((log: any) => 
+                log.action && log.action.includes('LOGIN')
+              ).length;
+              
+              const recentSearches = result.data.logs.filter((log: any) => 
+                log.action && (log.action.includes('SEARCH') || log.action.includes('VIEW'))
+              ).length;
+              
+              setStats(prev => ({
+                ...prev,
+                totalLogs: result.data.pagination?.total || result.data.logs.length,
+                todayLogs,
+                recentLogins,
+                recentSearches
+              }));
+            }
           }
         }
         

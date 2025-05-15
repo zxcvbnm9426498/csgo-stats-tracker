@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getLogs, addLog } from '@/lib/edge-config';
+import { getLogs, addLog } from '@/app/api/admin/db';
 import { cookies } from 'next/headers';
 
 // 简单的中间件函数，检查管理员是否已登录
@@ -19,12 +19,26 @@ export async function GET(request: NextRequest) {
       }, { status: 401 });
     }
 
+    // 获取查询参数
+    const url = new URL(request.url);
+    const page = parseInt(url.searchParams.get('page') || '1');
+    const limit = parseInt(url.searchParams.get('limit') || '20');
+    const action = url.searchParams.get('action') || undefined;
+    const startDate = url.searchParams.get('startDate') || undefined;
+    const endDate = url.searchParams.get('endDate') || undefined;
+
     // 获取日志
-    const logs = await getLogs();
+    const result = await getLogs({
+      page,
+      limit,
+      action,
+      startDate,
+      endDate
+    });
     
     return NextResponse.json({
       success: true,
-      logs
+      data: result
     });
   } catch (error) {
     console.error('获取日志错误:', error);
@@ -68,7 +82,7 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json({
       success: true,
-      log
+      data: { log }
     });
   } catch (error) {
     console.error('创建日志错误:', error);
