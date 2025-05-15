@@ -48,7 +48,7 @@ export async function getAccounts(): Promise<Account[]> {
       console.log('第一行数据示例:', JSON.stringify(result[0]));
     }
     
-    return result.map(row => {
+    const accounts = result.map(row => {
       try {
         return {
           id: row.id?.toString() || '',
@@ -76,6 +76,40 @@ export async function getAccounts(): Promise<Account[]> {
         };
       }
     });
+    
+    // 去除重复的Steam ID (保留最新的)
+    const uniqueAccounts: Record<string, Account> = {};
+    const steamIdMap: Record<string, boolean> = {};
+    
+    // 先按创建时间降序排序，确保保留最新的
+    accounts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    
+    // 去重处理：按ID保留唯一账号，同时确保steamId不重复
+    for (const account of accounts) {
+      const id = account.id;
+      
+      // 如果该账号有steamId且之前已经有相同steamId的账号，则跳过
+      if (account.steamId && steamIdMap[account.steamId]) {
+        console.log(`跳过重复的Steam ID账号: ${account.id}, steamId: ${account.steamId}`);
+        continue;
+      }
+      
+      // 保存这个账号
+      uniqueAccounts[id] = account;
+      
+      // 如果有steamId，标记为已存在
+      if (account.steamId) {
+        steamIdMap[account.steamId] = true;
+      }
+    }
+    
+    const uniqueAccountsList = Object.values(uniqueAccounts);
+    console.log(`去重后账号数量: ${uniqueAccountsList.length} (原始: ${accounts.length})`);
+    
+    // 按创建时间降序排序
+    return uniqueAccountsList.sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
   } catch (error) {
     console.error('获取账号列表失败:', error);
     // 在生产环境中记录更多信息以便调试
@@ -84,11 +118,58 @@ export async function getAccounts(): Promise<Account[]> {
   }
 }
 
+// 检查账号是否存在
+export async function checkAccountExists(criteria: { username?: string; steamId?: string }): Promise<boolean> {
+  try {
+    const { username, steamId } = criteria;
+    
+    // 至少需要一个查询条件
+    if (!username && !steamId) {
+      return false;
+    }
+    
+    let result;
+    
+    // 根据提供的条件构建查询
+    if (username && steamId) {
+      // 如果同时提供了用户名和steamId，检查两者是否都与现有账号匹配
+      result = await sql`
+        SELECT COUNT(*) as count FROM accounts 
+        WHERE username = ${username} OR "steamId" = ${steamId}
+      `;
+    } else if (username) {
+      // 仅按用户名查询
+      result = await sql`
+        SELECT COUNT(*) as count FROM accounts 
+        WHERE username = ${username}
+      `;
+    } else {
+      // 仅按steamId查询
+      result = await sql`
+        SELECT COUNT(*) as count FROM accounts 
+        WHERE "steamId" = ${steamId}
+      `;
+    }
+    
+    const count = parseInt(result[0].count);
+    return count > 0;
+  } catch (error) {
+    console.error('检查账号是否存在失败:', error);
+    // 出错时返回false，避免阻止创建账号
+    return false;
+  }
+}
+
 // 添加账号
 export async function addAccount(accountData: Omit<Account, 'id' | 'createdAt'>): Promise<Account> {
   const { username, phone, steamId, status } = accountData;
   
   try {
+    // 检查账号是否已存在
+    if (await checkAccountExists({ username, steamId })) {
+      throw new Error('账号已存在: 相同的用户名或Steam ID已被使用');
+    }
+    
     // 明确使用双引号包裹列名，按照PostgreSQL标准
     const result = await sql`
       INSERT INTO accounts (username, phone, "steamId", status, "createdAt")
@@ -126,6 +207,47 @@ export async function updateAccount(
     // 检查是否有更新字段
     if (!username && !phone && steamId === undefined && status === undefined) {
       return null;
+    }
+
+    // 如果要更新用户名或steamId，先检查是否已存在
+    if (username || steamId !== undefined) {
+      // 获取当前账号信息，排除在重复检查中
+      const currentAccount = await sql`SELECT * FROM accounts WHERE id = ${id}`;
+      
+      if (currentAccount.length === 0) {
+        console.error('更新账号失败: 找不到ID为', id, '的账号');
+        return null;
+      }
+      
+      // 检查更新后的字段是否与其他账号重复
+      let hasDuplicate = false;
+      let duplicateField = '';
+      
+      if (username) {
+        const usernameCheck = await sql`
+          SELECT COUNT(*) as count FROM accounts 
+          WHERE username = ${username} AND id != ${id}
+        `;
+        if (parseInt(usernameCheck[0].count) > 0) {
+          hasDuplicate = true;
+          duplicateField = '用户名';
+        }
+      }
+      
+      if (steamId !== undefined && steamId !== null) {
+        const steamIdCheck = await sql`
+          SELECT COUNT(*) as count FROM accounts 
+          WHERE "steamId" = ${steamId} AND id != ${id}
+        `;
+        if (parseInt(steamIdCheck[0].count) > 0) {
+          hasDuplicate = true;
+          duplicateField = duplicateField ? duplicateField + '和Steam ID' : 'Steam ID';
+        }
+      }
+      
+      if (hasDuplicate) {
+        throw new Error(`更新失败: ${duplicateField}已被其他账号使用`);
+      }
     }
 
     // 构建动态更新语句，使用多个单独的更新而不是一个复杂的
@@ -181,7 +303,7 @@ export async function updateAccount(
     };
   } catch (error) {
     console.error('更新账号失败:', error);
-    return null;
+    throw new Error(`更新账号失败: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 

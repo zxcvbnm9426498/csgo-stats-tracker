@@ -219,30 +219,40 @@ export async function PUT(request: NextRequest) {
     }
     
     // 更新账号
-    const account = await updateAccount(id, {
-      username,
-      steamId
-    });
-    
-    if (!account) {
+    try {
+      const account = await updateAccount(id, {
+        username,
+        steamId
+      });
+      
+      if (!account) {
+        return NextResponse.json({
+          success: false,
+          message: '账号不存在'
+        }, { status: 404 });
+      }
+      
+      // 记录操作日志
+      await addLog({
+        action: 'UPDATE_ACCOUNT',
+        details: `更新账号: ${account.username}`,
+        ip: request.headers.get('x-forwarded-for') || 'unknown'
+      });
+      
+      return NextResponse.json({
+        success: true,
+        message: '账号更新成功',
+        data: { account }
+      });
+    } catch (updateError) {
+      console.error('更新账号操作失败:', updateError);
+      // 返回更详细的错误信息
       return NextResponse.json({
         success: false,
-        message: '账号不存在'
-      }, { status: 404 });
+        message: updateError instanceof Error ? updateError.message : '更新账号失败',
+        error: updateError instanceof Error ? updateError.message : String(updateError)
+      }, { status: 400 }); // 使用400错误码表示客户端请求有问题
     }
-    
-    // 记录操作日志
-    await addLog({
-      action: 'UPDATE_ACCOUNT',
-      details: `更新账号: ${account.username}`,
-      ip: request.headers.get('x-forwarded-for') || 'unknown'
-    });
-    
-    return NextResponse.json({
-      success: true,
-      message: '账号更新成功',
-      data: { account }
-    });
   } catch (error) {
     console.error('更新账号失败:', error);
     return NextResponse.json({

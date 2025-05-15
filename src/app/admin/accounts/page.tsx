@@ -159,6 +159,8 @@ export default function AccountsPage() {
         ? { id: editingAccount.id, ...formData }
         : formData;
       
+      console.log(`提交${editingAccount ? '编辑' : '创建'}账号表单:`, body);
+      
       const response = await fetch('/api/admin/accounts', {
         method,
         headers: {
@@ -168,6 +170,7 @@ export default function AccountsPage() {
       });
       
       const result = await response.json();
+      console.log(`${editingAccount ? '编辑' : '创建'}账号响应:`, result);
       
       if (result.success) {
         toast.success(result.message || (editingAccount ? '账号更新成功' : '账号创建成功'));
@@ -175,10 +178,37 @@ export default function AccountsPage() {
         loadAccounts(currentPage);
       } else {
         console.error('操作失败详情:', result);
-        toast.error(result.message || '操作失败');
-        if (result.error) {
-          console.error('详细错误:', result.error);
-          toast.error(`错误详情: ${result.error}`);
+        
+        // 根据错误信息提供更友好的提示
+        if (result.message && result.message.includes('已存在') || 
+            result.message && result.message.includes('已被') ||
+            result.error && result.error.includes('已存在') || 
+            result.error && result.error.includes('已被')) {
+          
+          toast.error('账号创建失败: 用户名或Steam ID已被使用');
+          
+          // 高亮显示可能有问题的字段
+          const errorField = document.getElementById(
+            result.message?.includes('用户名') || result.error?.includes('用户名') 
+              ? 'username' 
+              : 'steamId'
+          );
+          
+          if (errorField) {
+            errorField.classList.add('border-red-500');
+            errorField.focus();
+            
+            // 3秒后移除高亮
+            setTimeout(() => {
+              errorField.classList.remove('border-red-500');
+            }, 3000);
+          }
+        } else {
+          // 其他错误
+          toast.error(result.message || '操作失败');
+          if (result.error && result.error !== result.message) {
+            toast.error(`错误详情: ${result.error}`);
+          }
         }
       }
     } catch (error) {
