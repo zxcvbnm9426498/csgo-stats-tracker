@@ -97,7 +97,7 @@ async function handleCheckBan(steamId64: string, providedToken: string): Promise
     }
 
 // 获取ELO分数和比赛历史
-async function handleGetEloScore(data: any) {
+async function handleGetEloScore(data: any, request: NextRequest) {
   const { steamId } = data;
 
   if (!steamId) {
@@ -108,11 +108,11 @@ async function handleGetEloScore(data: any) {
   }
 
   try {
-    // 优先使用请求头中的Token，如果没有则从数据库获取
-    let token = data.token;
+    // 从HTTP请求头获取token（x-api-token或x-auth-token）
+    let token = request.headers.get('x-api-token') || request.headers.get('x-auth-token');
     
     if (!token) {
-      console.log('[API] 尝试从数据库获取Token');
+      console.log('[API] 请求头中没有token，尝试从数据库获取');
       token = await getTokenFromDatabase(steamId);
       
       if (!token) {
@@ -122,6 +122,8 @@ async function handleGetEloScore(data: any) {
           message: '无法获取有效Token，请先登录或确保账号已关联'
         }, { status: 401 });
       }
+    } else {
+      console.log('[API] 从请求头获取到token:', token);
     }
 
     // 调用完美世界API获取比赛记录
@@ -248,7 +250,7 @@ export async function POST(request: NextRequest) {
     // 根据操作类型分发请求
     switch (action) {
       case 'getEloScore':
-        return await handleGetEloScore(requestData);
+        return await handleGetEloScore(requestData, request);
       default:
         return NextResponse.json({
           statusCode: 1,
