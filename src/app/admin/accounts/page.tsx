@@ -111,10 +111,32 @@ export default function AccountsPage() {
     setShowModal(true);
   };
 
+  // 验证表单输入
+  const validateForm = () => {
+    // 检查手机号是否已填写
+    if (!formData.phone.trim()) {
+      toast.error('请输入手机号');
+      return false;
+    }
+
+    // 检查用户名和Steam ID是否至少填写了一个
+    if (!formData.username.trim() && !formData.steamId.trim()) {
+      toast.error('用户名和Steam ID至少填写一项');
+      return false;
+    }
+
+    return true;
+  };
+
   // 提交表单
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // 验证表单
+    if (!validateForm()) {
+      return;
+    }
+
     try {
       const method = editingAccount ? 'PUT' : 'POST';
       const body = editingAccount 
@@ -325,7 +347,7 @@ export default function AccountsPage() {
         
         {/* 创建/编辑账号模态框 */}
         {showModal && (
-          <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+          <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-800 bg-opacity-75">
             <div className="bg-white rounded-lg p-6 max-w-md w-full">
               <h2 className="text-xl font-bold mb-4">
                 {editingAccount ? '编辑账号' : '创建新账号'}
@@ -335,16 +357,16 @@ export default function AccountsPage() {
                 <div className="space-y-4">
                   <div>
                     <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
-                      用户名 <span className="text-red-500">*</span>
+                      用户名
                     </label>
                     <input
                       type="text"
                       id="username"
                       name="username"
-                      required
                       value={formData.username}
                       onChange={handleChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      placeholder="请输入用户名"
                     />
                   </div>
                   
@@ -360,6 +382,7 @@ export default function AccountsPage() {
                       value={formData.phone}
                       onChange={handleChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      placeholder="请输入手机号码"
                     />
                   </div>
                   
@@ -374,6 +397,7 @@ export default function AccountsPage() {
                       value={formData.steamId}
                       onChange={handleChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      placeholder="选填，Steam ID"
                     />
                   </div>
                   
@@ -393,6 +417,10 @@ export default function AccountsPage() {
                       <option value="suspended">已暂停</option>
                       <option value="banned">已封禁</option>
                     </select>
+                  </div>
+                  
+                  <div className="text-sm text-gray-500 italic">
+                    注: 手机号为必填项，用户名和Steam ID至少填写一项
                   </div>
                 </div>
                 

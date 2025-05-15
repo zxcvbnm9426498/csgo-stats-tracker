@@ -95,17 +95,24 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { username, phone, steamId, status } = body;
     
-    // 验证必填字段
-    if (!username || !phone) {
+    // 修改验证逻辑：必须有手机号，且用户名或Steam ID至少有一个
+    if (!phone) {
       return NextResponse.json({
         success: false,
-        message: '用户名和手机号是必填字段'
+        message: '手机号是必填字段'
+      }, { status: 400 });
+    }
+    
+    if (!username && !steamId) {
+      return NextResponse.json({
+        success: false,
+        message: '用户名和Steam ID至少填写一项'
       }, { status: 400 });
     }
     
     // 创建账号
     const account = await addAccount({
-      username,
+      username: username || `用户_${phone.substring(phone.length-4)}`, // 如果没有用户名，使用手机号后4位作为默认名称
       phone,
       steamId,
       status: status || 'active'
@@ -114,7 +121,7 @@ export async function POST(request: NextRequest) {
     // 记录操作日志
     await addLog({
       action: 'CREATE_ACCOUNT',
-      details: `创建账号: ${username}`,
+      details: `创建账号: ${username || steamId || phone}`,
       ip: request.headers.get('x-forwarded-for') || 'unknown'
     });
     
