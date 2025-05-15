@@ -312,30 +312,6 @@ export default function Home() {
             <h1 className="text-3xl font-bold text-gray-900 mb-2">CSGO 玩家战绩查询系统</h1>
             <p className="text-gray-600">输入玩家ID或Steam ID查询详细游戏数据</p>
           </div>
-          <div className="flex flex-col items-end">
-            {isLoggedIn && userPhone && (
-              <div className="text-xs text-gray-600 mb-1 text-right">
-                <p>用户ID: {userId || '-'}</p>
-                <p>手机号: {maskPhoneNumber(userPhone)}</p>
-                {userToken && <p title={userToken}>Token: {userToken.substring(0, 6)}...{userToken.substring(userToken.length - 4)}</p>}
-              </div>
-            )}
-            {isLoggedIn ? (
-              <button 
-                onClick={handleLogout}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-              >
-                退出登录
-              </button>
-            ) : (
-              <Link
-                href="/login"
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                登录
-              </Link>
-            )}
-          </div>
         </header>
 
         {/* 账号卡片列表 */}
