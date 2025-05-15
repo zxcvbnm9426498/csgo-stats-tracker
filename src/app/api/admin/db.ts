@@ -23,18 +23,63 @@ export interface Log {
 // 获取所有账号
 export async function getAccounts(): Promise<Account[]> {
   try {
+    console.log('开始获取账号列表...');
+    
+    // 检查数据库连接
+    const testQuery = await sql`SELECT 1 as test`;
+    console.log('数据库连接测试:', testQuery);
+    
+    // 获取账号总数
+    const countResult = await sql`SELECT COUNT(*) as count FROM accounts`;
+    console.log('账号总数:', countResult[0]?.count);
+    
+    // 获取账号列表
     const result = await sql`SELECT * FROM accounts ORDER BY "createdAt" DESC`;
-    return result.map(row => ({
-      id: row.id.toString(),
-      username: row.username,
-      phone: row.phone,
-      steamId: row.steamid || undefined,
-      status: row.status as 'active' | 'suspended' | 'banned',
-      createdAt: new Date(row.createdat).toISOString(),
-      lastLogin: row.lastlogin ? new Date(row.lastlogin).toISOString() : undefined
-    }));
+    console.log('查询结果行数:', result.length);
+    
+    if (result.length === 0) {
+      console.log('没有找到账号记录');
+      return [];
+    }
+    
+    // 记录第一行数据结构以便调试
+    if (result.length > 0) {
+      console.log('第一行数据结构:', Object.keys(result[0]));
+      console.log('第一行数据示例:', JSON.stringify(result[0]));
+    }
+    
+    return result.map(row => {
+      try {
+        return {
+          id: row.id?.toString() || '',
+          username: row.username || '',
+          phone: row.phone || '',
+          // 注意列名可能是小写的，PostgreSQL 通常会将列名转为小写除非使用引号
+          steamId: (row.steamid || row.steamId || row["steamId"] || null) || undefined,
+          status: (row.status || 'active') as 'active' | 'suspended' | 'banned',
+          createdAt: row.createdat || row.createdAt || row["createdAt"] 
+            ? new Date(row.createdat || row.createdAt || row["createdAt"]).toISOString()
+            : new Date().toISOString(),
+          lastLogin: (row.lastlogin || row.lastLogin || row["lastLogin"])
+            ? new Date(row.lastlogin || row.lastLogin || row["lastLogin"]).toISOString()
+            : undefined
+        };
+      } catch (rowError) {
+        console.error('处理账号行数据出错:', rowError, '原始数据:', row);
+        // 返回尽可能多的数据，而不是跳过此行
+        return {
+          id: row.id?.toString() || 'unknown',
+          username: row.username || 'unknown',
+          phone: row.phone || '',
+          status: 'active' as 'active',
+          createdAt: new Date().toISOString()
+        };
+      }
+    });
   } catch (error) {
-    console.error('获取账号失败:', error);
+    console.error('获取账号列表失败:', error);
+    // 在生产环境中记录更多信息以便调试
+    console.error('错误详情:', error instanceof Error ? error.stack : '未知错误');
     return [];
   }
 }

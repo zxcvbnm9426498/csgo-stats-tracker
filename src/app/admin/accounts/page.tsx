@@ -48,6 +48,8 @@ export default function AccountsPage() {
         url.searchParams.append('status', statusFilter);
       }
       
+      console.log('请求账号数据:', url.toString());
+      
       const response = await fetch(url.toString());
       
       if (!response.ok) {
@@ -56,15 +58,41 @@ export default function AccountsPage() {
           router.push('/admin');
           return;
         }
-        throw new Error('获取账号数据失败');
+        
+        // 尝试解析错误响应
+        try {
+          const errorData = await response.json();
+          console.error('API错误响应:', errorData);
+          toast.error(`获取账号数据失败: ${errorData.message || response.statusText}`);
+        } catch (parseError) {
+          toast.error(`获取账号数据失败: ${response.status} ${response.statusText}`);
+        }
+        
+        throw new Error(`获取账号数据失败: ${response.status} ${response.statusText}`);
       }
       
       const result = await response.json();
+      console.log('获取账号数据响应:', result);
+      
       if (result.success) {
+        // 检查账号数组是否存在
+        if (!result.data || !Array.isArray(result.data.accounts)) {
+          console.error('API返回格式错误，缺少accounts数组:', result);
+          toast.error('服务器返回数据格式错误');
+          setAccounts([]);
+          return;
+        }
+        
         setAccounts(result.data.accounts);
-        setTotalPages(result.data.pagination.totalPages);
+        setTotalPages(result.data.pagination.totalPages || 1);
         setCurrentPage(page);
+        
+        // 如果账号列表为空，显示提示信息
+        if (result.data.accounts.length === 0) {
+          toast.success('没有找到账号数据');
+        }
       } else {
+        console.error('API返回错误:', result);
         toast.error(result.message || '获取账号数据失败');
       }
     } catch (error) {

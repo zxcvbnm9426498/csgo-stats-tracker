@@ -11,23 +11,52 @@ async function isAuthenticated(request: NextRequest): Promise<boolean> {
 // 获取账号列表
 export async function GET(request: NextRequest) {
   try {
+    console.log('开始处理获取账号请求...');
+    
+    // 获取请求URL和参数
+    const url = new URL(request.url);
+    console.log('请求URL:', url.toString());
+    
     // 验证管理员身份
     if (!(await isAuthenticated(request))) {
+      console.log('验证失败: 用户未登录');
       return NextResponse.json({
         success: false,
         message: '请先登录'
       }, { status: 401 });
     }
 
+    console.log('验证通过: 用户已登录');
+
     // 获取查询参数
-    const url = new URL(request.url);
     const page = parseInt(url.searchParams.get('page') || '1');
     const limit = parseInt(url.searchParams.get('limit') || '10');
     const search = url.searchParams.get('search') || '';
     const status = url.searchParams.get('status') || '';
+    console.log('查询参数:', { page, limit, search, status });
 
     // 获取所有账号
+    console.log('开始从数据库获取账号...');
     const allAccounts = await getAccounts();
+    console.log(`从数据库获取了 ${allAccounts.length} 个账号`);
+    
+    // 日志打印前5个账号的ID和用户名，帮助排查问题
+    if (allAccounts.length > 0) {
+      const accountSamples = allAccounts.slice(0, 5).map(acc => ({ id: acc.id, username: acc.username }));
+      console.log('账号示例:', JSON.stringify(accountSamples));
+    } else {
+      console.log('警告: 数据库中没有账号');
+      
+      // 尝试重新查询一遍，直接使用SQL，绕过getAccounts函数
+      try {
+        console.log('尝试直接使用SQL查询账号...');
+        const { sql } = require('@/lib/db');
+        const directResult = await sql`SELECT * FROM accounts LIMIT 5`;
+        console.log('直接SQL查询结果:', JSON.stringify(directResult));
+      } catch (sqlError) {
+        console.error('直接SQL查询失败:', sqlError);
+      }
+    }
     
     // 过滤
     let filteredAccounts = [...allAccounts];
@@ -39,26 +68,36 @@ export async function GET(request: NextRequest) {
         acc.phone.toLowerCase().includes(searchLower) ||
         (acc.steamId && acc.steamId.toLowerCase().includes(searchLower))
       );
+      console.log(`按搜索过滤后剩余 ${filteredAccounts.length} 个账号`);
     }
     
     if (status) {
       filteredAccounts = filteredAccounts.filter(acc => acc.status === status);
+      console.log(`按状态过滤后剩余 ${filteredAccounts.length} 个账号`);
     }
     
     // 分页
     const total = filteredAccounts.length;
-    const totalPages = Math.ceil(total / limit);
+    const totalPages = Math.ceil(total / limit) || 1; // 确保至少有1页
     const startIndex = (page - 1) * limit;
     const paginatedAccounts = filteredAccounts.slice(startIndex, startIndex + limit);
+    console.log(`分页结果: 总计 ${total} 个账号, ${totalPages} 页, 当前页 ${page}, 返回 ${paginatedAccounts.length} 条记录`);
     
     // 记录访问日志
-    await addLog({
-      action: 'VIEW_ACCOUNTS',
-      details: `查看账号列表，页码: ${page}, 每页数量: ${limit}`,
-      ip: request.headers.get('x-forwarded-for') || 'unknown'
-    });
+    try {
+      await addLog({
+        action: 'VIEW_ACCOUNTS',
+        details: `查看账号列表，页码: ${page}, 每页数量: ${limit}`,
+        ip: request.headers.get('x-forwarded-for') || 'unknown'
+      });
+      console.log('访问日志已记录');
+    } catch (logError) {
+      console.error('记录日志失败:', logError);
+      // 继续处理，不因为日志错误中断整个请求
+    }
     
-    return NextResponse.json({
+    // 返回响应
+    const response = {
       success: true,
       data: {
         accounts: paginatedAccounts,
@@ -69,13 +108,20 @@ export async function GET(request: NextRequest) {
           limit
         }
       }
-    });
+    };
+    console.log('返回响应:', JSON.stringify(response.data.pagination));
+    
+    return NextResponse.json(response);
   } catch (error) {
     console.error('获取账号列表失败:', error);
+    console.error('错误堆栈:', error instanceof Error ? error.stack : '未知错误');
+    
+    // 返回更详细的错误信息
     return NextResponse.json({
       success: false,
       message: '获取账号列表失败',
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
+      timestamp: new Date().toISOString()
     }, { status: 500 });
   }
 }
